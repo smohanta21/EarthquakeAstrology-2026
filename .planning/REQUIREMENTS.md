@@ -102,8 +102,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | WEB-03 | Phase 4 | Pending |
 | WEB-04 | Phase 4 | Pending |
 | WEB-05 | Phase 4 | Pending |
-| DEPLOY-01 | Phase 5 | Pending |
-| DEPLOY-02 | Phase 5 | Pending |
+| DEPLOY-01 | Phase 4 | Pending |
+| DEPLOY-02 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 25 total
@@ -112,4 +112,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-03-14*
-*Last updated: 2026-03-14 after initial definition*
+*Last updated: 2026-03-14 — traceability updated after roadmap creation (DEPLOY-01, DEPLOY-02 consolidated into Phase 4)*
