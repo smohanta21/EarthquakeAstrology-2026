@@ -31,6 +31,13 @@ from pipeline.features.engineering import (
     fit_nakshatra_encoder,
 )
 
+# build_matrix_chunk imported separately to avoid import failure in older stubs
+try:
+    from pipeline.features.engineering import build_matrix_chunk, active_cells_list
+    _HAS_BUILD_MATRIX = True
+except ImportError:
+    _HAS_BUILD_MATRIX = False
+
 
 # ---------------------------------------------------------------------------
 # FEAT-01: Grid cells
@@ -498,6 +505,162 @@ class TestDownsamplingScope:
         # n_sample = min(100, 5) = 5; total = 10 + 5 = 15
         assert (result["EQIndicator"] == 0).sum() == n_neg
         assert len(result) == n_pos + n_neg
+
+
+# ---------------------------------------------------------------------------
+# FEAT-02: build_matrix_chunk (EQIndicator broadcast)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.skipif(not _HAS_BUILD_MATRIX, reason="build_matrix_chunk not yet importable")
+class TestBuildMatrixChunk:
+    """FEAT-02: build_matrix_chunk broadcasts one ephemeris row to all active cells."""
+
+    def _make_eq_index_for_date(self, date_val, cells_with_eq):
+        """Build a minimal eq_index with EQIndicator=1 for given date+cells."""
+        import numpy as np
+        from datetime import date as date_type
+        if isinstance(date_val, str):
+            import pandas as pd
+            date_val = pd.Timestamp(date_val).date()
+
+        dates = [date_val] * len(cells_with_eq)
+        lats = [c[0] for c in cells_with_eq]
+        lons = [c[1] for c in cells_with_eq]
+        idx = pd.MultiIndex.from_arrays(
+            [pd.Index(dates, dtype=object), lats, lons],
+            names=["date", "grid_lat", "grid_lon"],
+        )
+        return pd.Series(1, index=idx, dtype=int)
+
+    def test_returns_dataframe_with_n_active_cells_rows(self):
+        """build_matrix_chunk returns a DataFrame with len(active_cells) rows."""
+        import numpy as np
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        active_cells = [(35, -125), (30, -120), (40, -115)]
+        country_map = {c: "USA" for c in active_cells}
+        eq_index = self._make_eq_index_for_date(date(1999, 6, 15), [])
+
+        ephe_df = _make_minimal_ephe_df()
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        assert len(result) == len(active_cells)
+
+    def test_eq_indicator_1_for_matching_cell(self):
+        """EQIndicator=1 for a cell that had an event on the ephemeris row's date."""
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        target_cell = (35, -125)
+        other_cell = (30, -120)
+        active_cells = [target_cell, other_cell]
+        country_map = {target_cell: "USA", other_cell: "USA"}
+
+        test_date = date(1999, 6, 15)
+        eq_index = self._make_eq_index_for_date(test_date, [target_cell])
+
+        ephe_df = _make_minimal_ephe_df()
+        # Override date to match test_date
+        ephe_df["date"] = str(test_date)
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        result = result.sort_values(["grid_lat", "grid_lon"]).reset_index(drop=True)
+
+        # target_cell (35, -125) is sorted before (30, -120)? No: 30 < 35, so (30,-120) is row 0
+        row_target = result[(result["grid_lat"] == 35) & (result["grid_lon"] == -125)].iloc[0]
+        row_other = result[(result["grid_lat"] == 30) & (result["grid_lon"] == -120)].iloc[0]
+        assert row_target["EQIndicator"] == 1
+        assert row_other["EQIndicator"] == 0
+
+    def test_eq_indicator_0_for_no_event(self):
+        """EQIndicator=0 for all cells when eq_index is empty for that date."""
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        active_cells = [(35, -125), (30, -120)]
+        country_map = {c: "USA" for c in active_cells}
+        eq_index = self._make_eq_index_for_date(date(1999, 6, 15), [])  # empty
+
+        ephe_df = _make_minimal_ephe_df()
+        ephe_df["date"] = "1999-06-15"
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        assert (result["EQIndicator"] == 0).all()
+
+    def test_eq_indicator_dtype_is_int(self):
+        """EQIndicator column dtype is int (no NaN, no float)."""
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        active_cells = [(35, -125)]
+        country_map = {(35, -125): "USA"}
+        eq_index = self._make_eq_index_for_date(date(1999, 6, 15), [(35, -125)])
+
+        ephe_df = _make_minimal_ephe_df()
+        ephe_df["date"] = "1999-06-15"
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        assert result["EQIndicator"].dtype in (int, "int64", "int32"), (
+            f"EQIndicator dtype should be int, got {result['EQIndicator'].dtype}"
+        )
+        assert result["EQIndicator"].isna().sum() == 0
+
+    def test_has_grid_lat_grid_lon_country_columns(self):
+        """Result has grid_lat, grid_lon, and country columns."""
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        active_cells = [(35, -125)]
+        country_map = {(35, -125): "Japan"}
+        eq_index = self._make_eq_index_for_date(date(1999, 6, 15), [])
+
+        ephe_df = _make_minimal_ephe_df()
+        ephe_df["date"] = "1999-06-15"
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        assert "grid_lat" in result.columns
+        assert "grid_lon" in result.columns
+        assert "country" in result.columns
+        assert result["country"].iloc[0] == "Japan"
+
+    def test_sorted_by_grid_lat_grid_lon(self):
+        """Rows are sorted by (grid_lat, grid_lon) for deterministic ordering."""
+        from datetime import date
+        from pipeline.features.engineering import build_matrix_chunk
+
+        active_cells = [(40, -115), (30, -120), (35, -125)]  # unsorted
+        country_map = {c: "USA" for c in active_cells}
+        eq_index = self._make_eq_index_for_date(date(1999, 6, 15), [])
+
+        ephe_df = _make_minimal_ephe_df()
+        ephe_df["date"] = "1999-06-15"
+        ephe_df = ephe_df.set_index("date")
+        ephe_row = ephe_df.iloc[0]
+
+        result = build_matrix_chunk(ephe_row, active_cells, eq_index, country_map)
+        sorted_lats = result["grid_lat"].tolist()
+        assert sorted_lats == sorted(sorted_lats), "Rows should be sorted by grid_lat"
+
+    def test_active_cells_list_returns_sorted_list(self):
+        """active_cells_list converts set to sorted list of tuples."""
+        from pipeline.features.engineering import active_cells_list
+
+        cells_set = {(40, -115), (30, -120), (35, -125)}
+        result = active_cells_list(cells_set)
+        assert isinstance(result, list)
+        assert result == sorted(cells_set)
 
 
 # ---------------------------------------------------------------------------
