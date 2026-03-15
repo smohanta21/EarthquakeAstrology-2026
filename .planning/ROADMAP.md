@@ -2,7 +2,7 @@
 
 ## Overview
 
-The project builds in four sequential phases. Phase 1 establishes the two raw data sources — USGS earthquake records and Swiss Ephemeris planetary positions — with validation so corruption cannot propagate. Phase 2 transforms raw data into the full ~265-column feature matrix with correct cyclical encoding and a strict 2000-01-01 temporal boundary. Phase 3 trains the classifier, evaluates it on the 26-year holdout with the right metrics, and exports predictions.json — the artifact that gates the web app. Phase 4 builds the Next.js calendar UI against real predictions and deploys to Vercel.
+The project builds in four sequential phases. Phase 1 establishes the two raw data sources — USGS earthquake records and Swiss Ephemeris planetary positions — with validation so corruption cannot propagate. Phase 2 transforms raw data into the full ~836-column feature matrix with correct cyclical encoding and a strict 2000-01-01 temporal boundary. Phase 3 trains the classifier, evaluates it on the 26-year holdout with the right metrics, and exports predictions.json — the artifact that gates the web app. Phase 4 builds the Next.js calendar UI against real predictions and deploys to Vercel.
 
 ## Phases
 
@@ -13,7 +13,7 @@ The project builds in four sequential phases. Phase 1 establishes the two raw da
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Data Pipeline** - Fetch and validate USGS earthquake records and Swiss Ephemeris planetary positions for 1900–2026 (completed 2026-03-15)
-- [ ] **Phase 2: Feature Engineering** - Build the full ~265-column feature matrix with cyclical encoding, aspects, nakshatras, and strict no-leakage temporal split
+- [ ] **Phase 2: Feature Engineering** - Build the full ~836-column feature matrix with cyclical encoding, aspects, nakshatras, and strict no-leakage temporal split
 - [ ] **Phase 3: Model Training and Prediction Export** - Train classifier on 1900–2000 data, evaluate on 2000–2026 holdout, export predictions.json for March–December 2026
 - [ ] **Phase 4: Web App and Deployment** - Build Next.js calendar app consuming predictions.json and deploy to Vercel
 
@@ -36,15 +36,22 @@ Plans:
 - [ ] 01-03-PLAN.md — Validate ephemeris output against JPL Horizons for 10 spot-check dates
 
 ### Phase 2: Feature Engineering
-**Goal**: A single deterministic feature matrix CSV exists covering 1900–2026 with ~265 columns, correctly encoded, and with all scalers/encoders fit exclusively on pre-2000 data
+**Goal**: Separate deterministic train/test parquet files exist covering 1900–2026 with ~836 feature columns, correctly encoded, with all scalers/encoders fit exclusively on pre-2000 data, and output to data/processed/
 **Depends on**: Phase 1
 **Requirements**: FEAT-01, FEAT-02, FEAT-03, FEAT-04, FEAT-05
 **Success Criteria** (what must be TRUE):
-  1. `data/processed/feature_matrix.csv` is produced by running `pipeline/features/engineering.py` and contains planetary degrees, retrograde flags, one-hot zodiac signs, house placements, aspects, nakshatras, and an EQIndicator target column
-  2. All cyclical features (planetary degrees 0–360, zodiac sign numerals 1–12) are encoded as sin/cos pairs — no raw integer degree or sign columns remain in the final matrix
-  3. An assertion in the script confirms `max(X_train.index) < datetime(2000, 1, 1)` and `min(X_test.index) >= datetime(2000, 1, 1)` — no pre-2000 test rows and no post-2000 training rows
-  4. Regional geographic identifiers (country name, lat/long grid cell) appear as prediction dimensions in the feature matrix alongside the EQIndicator target
-**Plans**: TBD
+  1. Running `python pipeline/features/engineering.py` produces `data/processed/feature_matrix_train.parquet` (~263K rows, pre-2000 downsampled 10:1) and `data/processed/feature_matrix_test.parquet` (~8.5M rows, post-2000 not downsampled), both containing planetary sin/cos features, aspect booleans, nakshatra one-hot, tithi sin/cos, EQIndicator target, grid_lat, grid_lon, and country columns
+  2. All cyclical features (planetary degrees 0–360, zodiac sign numerals 1–12, nakshatra numbers 1–27, tithi 1–30) are encoded as sin/cos pairs — no raw integer degree or sign columns remain in the final matrix
+  3. An assertion in the script confirms `max(train.date) < 2000-01-01` and `min(test.date) >= 2000-01-01` — the OneHotEncoder for nakshatra names is fit exclusively on pre-2000 rows
+  4. Regional geographic identifiers (country name, lat/long grid cell) appear as prediction dimensions alongside the EQIndicator target; grid cells are 5°x5° floor-division buckets; 901 active cells discovered from full USGS catalog
+**Plans**: 5 plans
+
+Plans:
+- [ ] 02-01-PLAN.md — Wave 0: Install pyarrow, create pipeline/features package, write all test stubs and engineering.py skeleton
+- [ ] 02-02-PLAN.md — Wave 1: Implement USGS preprocessing (grid cells, country parsing, EQ index, country map)
+- [ ] 02-03-PLAN.md — Wave 1: Implement ephemeris encoding (cyclical sin/cos, tithi, nakshatra one-hot fitting)
+- [ ] 02-04-PLAN.md — Wave 2: Implement temporal split assertion, downsampling, and matrix row builder
+- [ ] 02-05-PLAN.md — Wave 3: Wire main() orchestration, run full pipeline, validate output artifacts
 
 ### Phase 3: Model Training and Prediction Export
 **Goal**: A trained, serialized classifier exists with a documented evaluation report, and predictions.json covering March–December 2026 is exported and ready for the web app
@@ -77,6 +84,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Data Pipeline | 3/3 | Complete   | 2026-03-15 |
-| 2. Feature Engineering | 0/TBD | Not started | - |
+| 2. Feature Engineering | 0/5 | Not started | - |
 | 3. Model Training and Prediction Export | 0/TBD | Not started | - |
 | 4. Web App and Deployment | 0/TBD | Not started | - |
