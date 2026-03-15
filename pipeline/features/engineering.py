@@ -9,11 +9,10 @@ Provides:
   - EQ index construction (build_eq_index)
   - Ephemeris encoding with cyclic transforms (encode_ephemeris, encode_cyclic)
   - Tithi computation (compute_tithi)
-  - Nakshatra encoder (fit_nakshatra_encoder)
+  - Nakshatra encoder (fit_nakshatra_encoder, apply_nakshatra_encoding)
+  - Encoder persistence (save_encoder, load_encoder)
   - Temporal leakage guard (assert_no_temporal_leakage)
   - Negative downsampling (downsample_negatives)
-
-All functions raise NotImplementedError until Wave 1 / Wave 2 tasks implement them.
 """
 
 from __future__ import annotations
@@ -59,6 +58,20 @@ NAKSHATRAS = [
     "Shatabhisha", "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
 ]
 
+# Tithi names: SP1..SP14, FM (full moon, idx 14), KP1..KP14, NM (new moon, idx 29)
+TITHIS = (
+    ["SP1", "SP2", "SP3", "SP4", "SP5", "SP6", "SP7",
+     "SP8", "SP9", "SP10", "SP11", "SP12", "SP13", "SP14", "FM"]
+    + ["KP1", "KP2", "KP3", "KP4", "KP5", "KP6", "KP7",
+       "KP8", "KP9", "KP10", "KP11", "KP12", "KP13", "KP14", "NM"]
+)
+
+# Nakshatra string column names (one per planet)
+NAKSHATRA_COLS = [f"{p}_nakshatra" for p in PLANETS]
+
+# Aspect type suffixes used in ephemeris column naming
+_ASPECT_TYPES = {"conjunction", "opposition", "trine", "square", "sextile"}
+
 
 # ---------------------------------------------------------------------------
 # Grid cell helpers
@@ -97,18 +110,18 @@ def build_active_cells(usgs_df: pd.DataFrame) -> set[tuple[int, int]]:
 # ---------------------------------------------------------------------------
 
 
-def extract_country(place) -> str:
+def extract_country(place: str | None) -> str:
     """Extract country from a USGS place string.
 
     Rules:
-        - If place is None, NaN, or empty string → return "Unknown"
+        - If place is None or empty string → return "Unknown"
         - If place contains a comma → return the last token after the final comma (stripped)
         - Otherwise → return place as-is (e.g. "Bismarck Sea")
+
+    Raises:
+        NotImplementedError: Until Wave 1 implements this function.
     """
-    if place is None or (isinstance(place, float) and np.isnan(place)) or str(place).strip() == "":
-        return "Unknown"
-    parts = str(place).split(",")
-    return parts[-1].strip()
+    raise NotImplementedError("extract_country not yet implemented (Wave 1)")
 
 
 # ---------------------------------------------------------------------------
@@ -126,45 +139,11 @@ def build_eq_index(usgs_df: pd.DataFrame) -> pd.Series:
 
     Returns:
         pd.Series with MultiIndex (date, grid_lat, grid_lon) and integer value 1.
+
+    Raises:
+        NotImplementedError: Until Wave 1 implements this function.
     """
-    df = usgs_df.copy()
-    # Use dt.date to get datetime.date objects (not Timestamps) for consistent indexing
-    df["date"] = pd.to_datetime(df["time"]).dt.date
-    df["grid_lat"] = (np.floor(df["latitude"].to_numpy() / 5) * 5).astype(int).tolist()
-    df["grid_lon"] = (np.floor(df["longitude"].to_numpy() / 5) * 5).astype(int).tolist()
-    df = df.drop_duplicates(subset=["date", "grid_lat", "grid_lon"])
-    # Use pd.Index with dtype=object to preserve datetime.date type (not coerce to Timestamp)
-    index = pd.MultiIndex.from_arrays(
-        [
-            pd.Index(df["date"].tolist(), dtype=object),
-            pd.Index(df["grid_lat"].tolist()),
-            pd.Index(df["grid_lon"].tolist()),
-        ],
-        names=["date", "grid_lat", "grid_lon"],
-    )
-    return pd.Series(1, index=index, name="EQIndicator")
-
-
-def build_country_map(usgs_df: pd.DataFrame) -> dict[tuple[int, int], str]:
-    """Build a mapping from (grid_lat, grid_lon) cells to the most common country label.
-
-    Args:
-        usgs_df: DataFrame with 'latitude', 'longitude', and 'place' columns.
-
-    Returns:
-        Dict mapping (grid_lat, grid_lon) -> most common country string.
-    """
-    df = usgs_df.copy()
-    df["grid_lat"] = (np.floor(df["latitude"].to_numpy() / 5) * 5).astype(int).tolist()
-    df["grid_lon"] = (np.floor(df["longitude"].to_numpy() / 5) * 5).astype(int).tolist()
-    df["country"] = df["place"].apply(extract_country)
-    country_map = (
-        df.groupby(["grid_lat", "grid_lon"])["country"]
-        .agg(lambda x: x.value_counts().index[0])
-        .to_dict()
-    )
-    # Convert numpy int keys to Python int tuples
-    return {(int(k[0]), int(k[1])): v for k, v in country_map.items()}
+    raise NotImplementedError("build_eq_index not yet implemented (Wave 1)")
 
 
 # ---------------------------------------------------------------------------
@@ -181,11 +160,9 @@ def encode_cyclic(series: pd.Series, period: float) -> tuple[pd.Series, pd.Serie
 
     Returns:
         Tuple of (sin_series, cos_series).
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("encode_cyclic not yet implemented (Wave 1)")
+    radians = series * (2 * np.pi / period)
+    return np.sin(radians), np.cos(radians)
 
 
 def compute_tithi(sun_lon: float, moon_lon: float) -> tuple[int, str]:
@@ -199,11 +176,10 @@ def compute_tithi(sun_lon: float, moon_lon: float) -> tuple[int, str]:
 
     Returns:
         Tuple of (tithi_num 0-29, tithi_name str).
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("compute_tithi not yet implemented (Wave 1)")
+    diff = (moon_lon - sun_lon) % 360
+    tithi_idx = int(diff / 12)
+    return tithi_idx, TITHIS[tithi_idx]
 
 
 def encode_ephemeris(ephe_df: pd.DataFrame) -> pd.DataFrame:
@@ -212,30 +188,84 @@ def encode_ephemeris(ephe_df: pd.DataFrame) -> pd.DataFrame:
     Transformations applied per planet p in PLANETS:
         - {p}_lon      → {p}_lon_sin, {p}_lon_cos  (period=360)
         - {p}_sign_num → {p}_sign_num_sin, {p}_sign_num_cos  (period=12)
-        - {p}_retro    → {p}_retro  (boolean kept as-is, cast to int)
+        - {p}_retro    → {p}_retro  (boolean cast to int)
         - {p}_nakshatra_num → {p}_nakshatra_num_sin, {p}_nakshatra_num_cos  (period=27)
 
     Additional:
-        - tithi_sin, tithi_cos from compute_tithi(sun_lon, moon_lon)
-        - All aspect columns ({p1}_{p2}_{aspect}) are passed through as-is
+        - tithi_sin, tithi_cos derived from sun_lon and moon_lon via compute_tithi
+        - All aspect columns ({p1}_{p2}_{aspect}) converted to int (0/1)
 
-    Raw columns removed:
+    Raw columns removed (only these four groups):
         - {p}_lon (raw float)
         - {p}_sign_num (raw int)
         - {p}_sign (text)
-        - {p}_nakshatra (text)
         - {p}_nakshatra_num (raw int, replaced by sin/cos)
+
+    PRESERVED:
+        - {p}_nakshatra string columns — NOT dropped here.
+          apply_nakshatra_encoding() (Plan 05) reads these and drops them after one-hot encoding.
 
     Args:
         ephe_df: Raw ephemeris DataFrame from pipeline/data/ephemeris.py.
 
     Returns:
-        Encoded DataFrame with only cyclic, binary, and aspect columns.
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
+        Encoded DataFrame with cyclic, binary, aspect columns, and nakshatra name strings.
+        Column count: 26 lon sin/cos + 26 sign_num sin/cos + 26 nakshatra_num sin/cos
+                      + 13 retro + 390 aspect + 2 tithi + 13 nakshatra strings = 496 + date
     """
-    raise NotImplementedError("encode_ephemeris not yet implemented (Wave 1)")
+    df = ephe_df.copy()
+
+    # Compute tithi sin/cos from sun and moon longitudes (before dropping lon columns)
+    sun_lons = df["sun_lon"].astype(float)
+    moon_lons = df["moon_lon"].astype(float)
+
+    # Vectorised tithi: diff = (moon - sun) % 360, idx = int(diff / 12)
+    diff = (moon_lons - sun_lons) % 360.0
+    tithi_idx = (diff / 12.0).astype(int)
+    tithi_sin, tithi_cos = encode_cyclic(tithi_idx.astype(float), period=30.0)
+    df["tithi_sin"] = tithi_sin.values
+    df["tithi_cos"] = tithi_cos.values
+
+    # Per-planet cyclic encoding
+    cols_to_drop: list[str] = []
+    for p in PLANETS:
+        # Longitude (period=360)
+        sin_lon, cos_lon = encode_cyclic(df[f"{p}_lon"].astype(float), period=360.0)
+        df[f"{p}_lon_sin"] = sin_lon.values
+        df[f"{p}_lon_cos"] = cos_lon.values
+        cols_to_drop.append(f"{p}_lon")
+
+        # Sign number (period=12)
+        sin_sign, cos_sign = encode_cyclic(df[f"{p}_sign_num"].astype(float), period=12.0)
+        df[f"{p}_sign_num_sin"] = sin_sign.values
+        df[f"{p}_sign_num_cos"] = cos_sign.values
+        cols_to_drop.append(f"{p}_sign_num")
+
+        # Nakshatra number (period=27)
+        sin_nak, cos_nak = encode_cyclic(df[f"{p}_nakshatra_num"].astype(float), period=27.0)
+        df[f"{p}_nakshatra_num_sin"] = sin_nak.values
+        df[f"{p}_nakshatra_num_cos"] = cos_nak.values
+        cols_to_drop.append(f"{p}_nakshatra_num")
+
+        # Sign text column — drop
+        cols_to_drop.append(f"{p}_sign")
+
+        # Retro — cast bool to int
+        df[f"{p}_retro"] = df[f"{p}_retro"].astype(int)
+
+        # NOTE: {p}_nakshatra string columns are intentionally NOT dropped here.
+        # apply_nakshatra_encoding() (called in Plan 05) reads those columns.
+
+    # Convert aspect bool columns to int (0/1)
+    # Aspect columns follow pattern: {p1}_{p2}_{aspect_type}
+    for col in df.columns:
+        if col.endswith(tuple(_ASPECT_TYPES)):
+            df[col] = df[col].astype(int)
+
+    # Drop raw columns
+    df = df.drop(columns=[c for c in cols_to_drop if c in df.columns])
+
+    return df
 
 
 # ---------------------------------------------------------------------------
@@ -243,7 +273,7 @@ def encode_ephemeris(ephe_df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 
-def fit_nakshatra_encoder(pre2000_df: pd.DataFrame) -> object:
+def fit_nakshatra_encoder(pre2000_df: pd.DataFrame):
     """Fit a OneHotEncoder on nakshatra columns using only pre-2000 training data.
 
     Encoder is fit on the closed vocabulary of 27 nakshatras seen in training data.
@@ -252,14 +282,69 @@ def fit_nakshatra_encoder(pre2000_df: pd.DataFrame) -> object:
 
     Args:
         pre2000_df: Ephemeris DataFrame restricted to dates before 2000-01-01.
+                    Must contain {p}_nakshatra string columns for all planets.
 
     Returns:
         Fitted sklearn OneHotEncoder instance.
-
-    Raises:
-        NotImplementedError: Until Wave 2 implements this function.
     """
-    raise NotImplementedError("fit_nakshatra_encoder not yet implemented (Wave 2)")
+    from sklearn.preprocessing import OneHotEncoder
+
+    encoder = OneHotEncoder(
+        handle_unknown="ignore",
+        sparse_output=False,
+        dtype=np.uint8,
+    )
+    encoder.fit(pre2000_df[NAKSHATRA_COLS])
+    return encoder
+
+
+def apply_nakshatra_encoding(df: pd.DataFrame, encoder) -> pd.DataFrame:
+    """Apply fitted nakshatra one-hot encoding to the DataFrame.
+
+    Transforms the 13 nakshatra name string columns into 351 uint8 one-hot columns
+    and drops the original string columns.
+
+    Args:
+        df: DataFrame that still contains {p}_nakshatra string columns
+            (i.e., the output of encode_ephemeris before this step).
+        encoder: Fitted sklearn OneHotEncoder from fit_nakshatra_encoder().
+
+    Returns:
+        DataFrame with 351 nakshatra one-hot columns added and original
+        nakshatra string columns removed.
+    """
+    ohe_array = encoder.transform(df[NAKSHATRA_COLS])
+    ohe_col_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+    ohe_df = pd.DataFrame(ohe_array, columns=ohe_col_names, index=df.index)
+
+    result = df.drop(columns=NAKSHATRA_COLS)
+    result = pd.concat([result, ohe_df], axis=1)
+    return result
+
+
+def save_encoder(encoder, path: str) -> None:
+    """Persist a fitted encoder to disk using joblib.
+
+    Args:
+        encoder: Fitted sklearn encoder (e.g. OneHotEncoder from fit_nakshatra_encoder).
+        path: File path to write (e.g. 'data/processed/nakshatra_encoder.pkl').
+    """
+    import joblib
+    joblib.dump(encoder, path)
+    logger.info(f"Encoder saved to {path}")
+
+
+def load_encoder(path: str):
+    """Load a fitted encoder from disk.
+
+    Args:
+        path: File path to read (e.g. 'data/processed/nakshatra_encoder.pkl').
+
+    Returns:
+        The deserialized encoder object.
+    """
+    import joblib
+    return joblib.load(path)
 
 
 # ---------------------------------------------------------------------------

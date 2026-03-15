@@ -202,7 +202,6 @@ class TestEQIndicatorCollapse:
 class TestColumnInventory:
     """FEAT-03: encode_ephemeris output must contain expected encoded columns."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_encoded_columns_present(self):
         """Output contains _lon_sin/_lon_cos, _sign_num_sin/_cos, _retro, _nakshatra_num_sin/_cos."""
         from pipeline.features.engineering import PLANETS
@@ -222,7 +221,6 @@ class TestColumnInventory:
             assert f"{p}_nakshatra_num_sin" in cols, f"Missing {p}_nakshatra_num_sin"
             assert f"{p}_nakshatra_num_cos" in cols, f"Missing {p}_nakshatra_num_cos"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_aspect_columns_present(self):
         """Aspect columns are passed through to the output."""
         ephe_df = _make_minimal_ephe_df()
@@ -238,11 +236,10 @@ class TestColumnInventory:
 
 
 class TestNoRawColumns:
-    """FEAT-03: encode_ephemeris must drop raw scalar and text columns."""
+    """FEAT-03: encode_ephemeris drops raw scalar columns; apply_nakshatra_encoding drops text."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_raw_lon_absent(self):
-        """Raw {p}_lon column must not appear in output."""
+        """Raw {p}_lon column must not appear in encode_ephemeris output."""
         from pipeline.features.engineering import PLANETS
 
         ephe_df = _make_minimal_ephe_df()
@@ -250,9 +247,8 @@ class TestNoRawColumns:
         for p in PLANETS:
             assert f"{p}_lon" not in result.columns, f"Raw {p}_lon should be removed"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_raw_sign_num_absent(self):
-        """Raw {p}_sign_num column must not appear in output."""
+        """Raw {p}_sign_num column must not appear in encode_ephemeris output."""
         from pipeline.features.engineering import PLANETS
 
         ephe_df = _make_minimal_ephe_df()
@@ -260,9 +256,8 @@ class TestNoRawColumns:
         for p in PLANETS:
             assert f"{p}_sign_num" not in result.columns, f"Raw {p}_sign_num should be removed"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_text_sign_absent(self):
-        """Text {p}_sign column must not appear in output."""
+        """Text {p}_sign column must not appear in encode_ephemeris output."""
         from pipeline.features.engineering import PLANETS
 
         ephe_df = _make_minimal_ephe_df()
@@ -270,15 +265,30 @@ class TestNoRawColumns:
         for p in PLANETS:
             assert f"{p}_sign" not in result.columns, f"Text {p}_sign should be removed"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
-    def test_text_nakshatra_absent(self):
-        """Text {p}_nakshatra column must not appear in output."""
+    def test_nakshatra_strings_preserved_after_encode_ephemeris(self):
+        """encode_ephemeris preserves {p}_nakshatra string columns for downstream one-hot step."""
         from pipeline.features.engineering import PLANETS
 
         ephe_df = _make_minimal_ephe_df()
         result = encode_ephemeris(ephe_df)
         for p in PLANETS:
-            assert f"{p}_nakshatra" not in result.columns, f"Text {p}_nakshatra should be removed"
+            assert f"{p}_nakshatra" in result.columns, (
+                f"{p}_nakshatra string must be preserved by encode_ephemeris"
+            )
+
+    def test_text_nakshatra_absent_after_full_pipeline(self):
+        """Text {p}_nakshatra column absent after encode_ephemeris + apply_nakshatra_encoding."""
+        from pipeline.features.engineering import PLANETS, apply_nakshatra_encoding
+
+        ephe_df = _make_minimal_ephe_df()
+        pre2000_df = _make_full_nakshatra_df()
+        encoder = fit_nakshatra_encoder(pre2000_df)
+        encoded = encode_ephemeris(ephe_df)
+        result = apply_nakshatra_encoding(encoded, encoder)
+        for p in PLANETS:
+            assert f"{p}_nakshatra" not in result.columns, (
+                f"Text {p}_nakshatra should be removed by apply_nakshatra_encoding"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -289,7 +299,6 @@ class TestNoRawColumns:
 class TestCyclicalEncoding:
     """FEAT-03: Verify sin/cos encoding produces correct values for known inputs."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_sun_lon_zero(self):
         """sun_lon=0.0 → sun_lon_sin==0.0, sun_lon_cos==1.0."""
         ephe_df = _make_minimal_ephe_df(sun_lon=0.0)
@@ -297,7 +306,6 @@ class TestCyclicalEncoding:
         assert result["sun_lon_sin"].iloc[0] == pytest.approx(0.0, abs=1e-6)
         assert result["sun_lon_cos"].iloc[0] == pytest.approx(1.0, abs=1e-6)
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_sun_lon_ninety(self):
         """sun_lon=90.0 → sun_lon_sin≈1.0, sun_lon_cos≈0.0."""
         ephe_df = _make_minimal_ephe_df(sun_lon=90.0)
@@ -305,7 +313,6 @@ class TestCyclicalEncoding:
         assert result["sun_lon_sin"].iloc[0] == pytest.approx(1.0, abs=1e-6)
         assert result["sun_lon_cos"].iloc[0] == pytest.approx(0.0, abs=1e-6)
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_tithi_columns_present(self):
         """tithi_sin and tithi_cos columns are present in encode_ephemeris output."""
         ephe_df = _make_minimal_ephe_df()
@@ -347,34 +354,59 @@ class TestTemporalSplit:
 class TestEncoderFitScope:
     """FEAT-04: fit_nakshatra_encoder fits on pre-2000 vocabulary only."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
     def test_fit_returns_encoder(self):
         """fit_nakshatra_encoder returns a fitted sklearn OneHotEncoder."""
         from sklearn.preprocessing import OneHotEncoder
 
-        pre2000_df = _make_minimal_ephe_df()
+        pre2000_df = _make_full_nakshatra_df()
         encoder = fit_nakshatra_encoder(pre2000_df)
         assert isinstance(encoder, OneHotEncoder)
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
+    def test_encoder_has_13_features(self):
+        """Fitted encoder has 13 feature inputs (one per planet)."""
+        pre2000_df = _make_full_nakshatra_df()
+        encoder = fit_nakshatra_encoder(pre2000_df)
+        assert len(encoder.categories_) == 13
+
+    def test_encoder_produces_351_columns(self):
+        """encoder.get_feature_names_out() returns 351 names (13 planets x 27 nakshatras)."""
+        from pipeline.features.engineering import NAKSHATRA_COLS
+
+        pre2000_df = _make_full_nakshatra_df()
+        encoder = fit_nakshatra_encoder(pre2000_df)
+        feature_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+        assert len(feature_names) == 351, f"Expected 351 columns, got {len(feature_names)}"
+
     def test_unknown_nakshatra_zero_vector(self):
         """Transforming post-2000 df with unknown nakshatra produces zero vector (no error)."""
-        from sklearn.preprocessing import OneHotEncoder
+        from pipeline.features.engineering import NAKSHATRA_COLS
 
-        pre2000_df = _make_minimal_ephe_df()
+        pre2000_df = _make_full_nakshatra_df()
         encoder = fit_nakshatra_encoder(pre2000_df)
 
         # Build a DataFrame with an unseen nakshatra string
         unseen_df = _make_minimal_ephe_df()
         # Overwrite all nakshatra columns with an unseen value
-        for col in unseen_df.columns:
-            if "_nakshatra" in col and "num" not in col:
-                unseen_df[col] = "__UNSEEN__"
+        for col in NAKSHATRA_COLS:
+            unseen_df[col] = "__UNSEEN__"
 
         # Transform should return zeros, not raise
-        nakshatra_cols = [c for c in unseen_df.columns if "_nakshatra" in c and "num" not in c]
-        result = encoder.transform(unseen_df[nakshatra_cols])
+        result = encoder.transform(unseen_df[NAKSHATRA_COLS])
         assert result.sum() == 0  # all zeros — unknown category handled gracefully
+
+    def test_apply_nakshatra_encoding_adds_351_cols(self):
+        """apply_nakshatra_encoding adds 351 one-hot columns to the encoded frame."""
+        from pipeline.features.engineering import apply_nakshatra_encoding
+
+        pre2000_df = _make_full_nakshatra_df()
+        encoder = fit_nakshatra_encoder(pre2000_df)
+
+        ephe_df = _make_minimal_ephe_df()
+        encoded = encode_ephemeris(ephe_df)
+        result = apply_nakshatra_encoding(encoded, encoder)
+
+        ohe_cols = [c for c in result.columns if "_nakshatra_" in c and "num" not in c]
+        assert len(ohe_cols) == 351, f"Expected 351 nakshatra OHE cols, got {len(ohe_cols)}"
 
 
 # ---------------------------------------------------------------------------
@@ -410,7 +442,7 @@ class TestDownsamplingScope:
 
 
 # ---------------------------------------------------------------------------
-# Shared fixture helper
+# Shared fixture helpers
 # ---------------------------------------------------------------------------
 
 
@@ -440,3 +472,28 @@ def _make_minimal_ephe_df(sun_lon: float = 45.0, moon_lon: float = 90.0) -> pd.D
     row["sun_moon_conjunction"] = 0
 
     return pd.DataFrame([row])
+
+
+def _make_full_nakshatra_df() -> pd.DataFrame:
+    """Build a 27-row DataFrame with all 27 nakshatras for each planet.
+
+    Used to fit the nakshatra encoder so all 27 categories are in the vocabulary.
+    """
+    from pipeline.features.engineering import NAKSHATRAS, PLANETS, SIGN_NAMES
+
+    rows = []
+    for nak_idx, nak_name in enumerate(NAKSHATRAS):
+        # Each row represents one nakshatra covering 360/27 degrees of longitude
+        lon = nak_idx * (360.0 / 27)
+        sign_num = int(lon / 30) % 12
+        row: dict = {"date": f"1990-01-{nak_idx + 1:02d}"}
+        for p in PLANETS:
+            row[f"{p}_lon"] = lon
+            row[f"{p}_sign_num"] = sign_num
+            row[f"{p}_sign"] = SIGN_NAMES[sign_num]
+            row[f"{p}_retro"] = False
+            row[f"{p}_nakshatra_num"] = nak_idx
+            row[f"{p}_nakshatra"] = nak_name
+        row["sun_moon_conjunction"] = 0
+        rows.append(row)
+    return pd.DataFrame(rows)
