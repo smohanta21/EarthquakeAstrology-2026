@@ -98,25 +98,29 @@ class TestGridCells:
 class TestCountryParsing:
     """FEAT-01: extract_country from USGS place strings."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_extract_country_standard(self):
         """Comma-separated place returns the last token."""
         assert extract_country("Southern Sumatra, Indonesia") == "Indonesia"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_extract_country_no_comma(self):
         """Place with no comma is returned as-is."""
         assert extract_country("Bismarck Sea") == "Bismarck Sea"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_extract_country_none(self):
         """None input returns 'Unknown'."""
         assert extract_country(None) == "Unknown"
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_extract_country_empty_string(self):
         """Empty string returns 'Unknown'."""
         assert extract_country("") == "Unknown"
+
+    def test_extract_country_nan(self):
+        """float NaN returns 'Unknown'."""
+        assert extract_country(float("nan")) == "Unknown"
+
+    def test_extract_country_alaska(self):
+        """Multi-comma place returns last token."""
+        assert extract_country("Kodiak Island region, Alaska") == "Alaska"
 
 
 # ---------------------------------------------------------------------------
@@ -127,7 +131,6 @@ class TestCountryParsing:
 class TestEQIndicator:
     """FEAT-02: build_eq_index returns binary MultiIndex Series."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_build_eq_index_returns_series(self):
         """build_eq_index returns a pd.Series."""
         usgs_df = pd.DataFrame(
@@ -140,7 +143,6 @@ class TestEQIndicator:
         result = build_eq_index(usgs_df)
         assert isinstance(result, pd.Series)
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_build_eq_index_multiindex(self):
         """Result Series has 3-level MultiIndex: (date, grid_lat, grid_lon)."""
         usgs_df = pd.DataFrame(
@@ -154,7 +156,6 @@ class TestEQIndicator:
         assert isinstance(result.index, pd.MultiIndex)
         assert result.index.names == ["date", "grid_lat", "grid_lon"]
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_build_eq_index_value_is_1(self):
         """Known event date+cell maps to value 1."""
         usgs_df = pd.DataFrame(
@@ -178,7 +179,6 @@ class TestEQIndicator:
 class TestEQIndicatorCollapse:
     """FEAT-02: Multiple events on same date+cell collapse to single EQIndicator=1."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 1")
     def test_two_events_same_cell_same_date_collapse(self):
         """Two USGS events on same date in same cell produce a single EQIndicator=1."""
         usgs_df = pd.DataFrame(
