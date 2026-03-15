@@ -329,21 +329,42 @@ class TestCyclicalEncoding:
 class TestTemporalSplit:
     """FEAT-04: assert_no_temporal_leakage raises on leaking dates."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
-    def test_raises_on_leaking_dates(self):
-        """assert_no_temporal_leakage raises AssertionError when dates overlap."""
-        train_dates = pd.date_range("1990-01-01", "2000-01-01", freq="D")
-        test_dates = pd.date_range("1999-01-01", "2001-01-01", freq="D")  # overlaps!
-        with pytest.raises(AssertionError):
+    def test_raises_when_train_contains_post2000(self):
+        """assert_no_temporal_leakage raises AssertionError when train has date >= 2000-01-01."""
+        from datetime import date
+        train_dates = [date(2000, 1, 1)]
+        test_dates = [date(2000, 1, 2)]
+        with pytest.raises(AssertionError, match="2000-01-01"):
             assert_no_temporal_leakage(train_dates, test_dates)
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
+    def test_raises_when_test_contains_pre2000(self):
+        """assert_no_temporal_leakage raises AssertionError when test has date < 2000-01-01."""
+        from datetime import date
+        train_dates = [date(1999, 12, 31)]
+        test_dates = [date(1999, 12, 31)]
+        with pytest.raises(AssertionError, match="test set|test"):
+            assert_no_temporal_leakage(train_dates, test_dates)
+
     def test_passes_on_clean_split(self):
         """assert_no_temporal_leakage does not raise when split is clean."""
-        train_dates = pd.date_range("1990-01-01", "1999-12-31", freq="D")
-        test_dates = pd.date_range("2000-01-01", "2026-12-31", freq="D")
+        from datetime import date
+        train_dates = [date(1999, 12, 31)]
+        test_dates = [date(2000, 1, 1)]
         # Should NOT raise — clean split
         assert_no_temporal_leakage(train_dates, test_dates)
+
+    def test_passes_with_date_range(self):
+        """assert_no_temporal_leakage works with pd.date_range inputs."""
+        train_dates = pd.date_range("1990-01-01", "1999-12-31", freq="D")
+        test_dates = pd.date_range("2000-01-01", "2026-12-31", freq="D")
+        assert_no_temporal_leakage(train_dates, test_dates)
+
+    def test_raises_on_leaking_date_range(self):
+        """assert_no_temporal_leakage raises when train date range includes 2000-01-01."""
+        train_dates = pd.date_range("1990-01-01", "2000-01-01", freq="D")
+        test_dates = pd.date_range("2000-01-01", "2001-01-01", freq="D")
+        with pytest.raises(AssertionError):
+            assert_no_temporal_leakage(train_dates, test_dates)
 
 
 # ---------------------------------------------------------------------------
@@ -417,19 +438,18 @@ class TestEncoderFitScope:
 class TestDownsamplingScope:
     """FEAT-05: downsample_negatives preserves all positives and down-samples negatives."""
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
     def test_downsample_row_count(self):
-        """Applied to pre-2000 chunk: returns len(positives)*11 rows."""
+        """Applied to pre-2000 chunk: returns n_pos + min(ratio*n_pos, n_neg) rows."""
         n_pos = 10
         n_neg = 500
         df = pd.DataFrame(
             {"EQIndicator": [1] * n_pos + [0] * n_neg}
         )
         result = downsample_negatives(df, ratio=10, random_state=42)
-        expected_rows = n_pos * (10 + 1)  # positives + 10x negatives
+        # n_sample = min(10 * 10, 500) = 100; total = 10 + 100 = 110
+        expected_rows = n_pos + min(10 * n_pos, n_neg)
         assert len(result) == expected_rows
 
-    @pytest.mark.xfail(reason="not implemented — Wave 2")
     def test_downsample_all_positives_preserved(self):
         """All positive rows are preserved after downsampling."""
         n_pos = 10
@@ -439,6 +459,45 @@ class TestDownsamplingScope:
         )
         result = downsample_negatives(df, ratio=10, random_state=42)
         assert result["EQIndicator"].sum() == n_pos
+
+    def test_downsample_negative_count_exact(self):
+        """Exactly ratio * n_positives negative rows are returned."""
+        n_pos = 10
+        n_neg = 500
+        df = pd.DataFrame(
+            {"EQIndicator": [1] * n_pos + [0] * n_neg}
+        )
+        result = downsample_negatives(df, ratio=10, random_state=42)
+        assert (result["EQIndicator"] == 0).sum() == 100
+
+    def test_downsample_deterministic(self):
+        """Two calls with same random_state return identical rows."""
+        n_pos = 5
+        n_neg = 200
+        df = pd.DataFrame(
+            {"EQIndicator": [1] * n_pos + [0] * n_neg, "value": range(n_pos + n_neg)}
+        )
+        result1 = downsample_negatives(df, ratio=10, random_state=42)
+        result2 = downsample_negatives(df, ratio=10, random_state=42)
+        pd.testing.assert_frame_equal(result1.reset_index(drop=True), result2.reset_index(drop=True))
+
+    def test_downsample_raises_missing_eq_indicator(self):
+        """downsample_negatives raises ValueError if EQIndicator column is absent."""
+        df = pd.DataFrame({"value": [1, 2, 3]})
+        with pytest.raises(ValueError, match="EQIndicator"):
+            downsample_negatives(df, ratio=10, random_state=42)
+
+    def test_downsample_clamps_when_negatives_too_few(self):
+        """When n_neg < ratio * n_pos, all negatives are returned."""
+        n_pos = 10
+        n_neg = 5  # fewer than ratio * n_pos
+        df = pd.DataFrame(
+            {"EQIndicator": [1] * n_pos + [0] * n_neg}
+        )
+        result = downsample_negatives(df, ratio=10, random_state=42)
+        # n_sample = min(100, 5) = 5; total = 10 + 5 = 15
+        assert (result["EQIndicator"] == 0).sum() == n_neg
+        assert len(result) == n_pos + n_neg
 
 
 # ---------------------------------------------------------------------------
