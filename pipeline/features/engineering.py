@@ -701,45 +701,29 @@ def main() -> None:
 
     # -----------------------------------------------------------------------
     # Step 5: Build pre-2000 training matrix using vectorized year builder
+    #
+    # Memory note: The full pre-2000 matrix is ~210 GB (100 years × 329K rows × 813 cols).
+    # We MUST downsample per-year before accumulating to keep peak RAM under ~3 GB.
+    # Per-year downsampling preserves ALL positive rows; negatives are sampled 10:1.
     # -----------------------------------------------------------------------
-    logger.info("Building pre-2000 training matrix (vectorized, chunked by year)...")
+    logger.info("Building pre-2000 training matrix (vectorized, per-year downsample)...")
 
-    # Try full-year collection first; fall back to per-year downsampling on MemoryError
-    use_per_year_downsample = False
+    use_per_year_downsample = True
     pre2000_chunks = []
 
-    try:
-        for year in tqdm(range(1900, 2000), desc="Building pre-2000 chunks"):
-            year_ephe = ephe_encoded[ephe_encoded.index.year == year]
-            if len(year_ephe) == 0:
-                continue
-            year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
-            pre2000_chunks.append(year_df)
+    for year in tqdm(range(1900, 2000), desc="Building pre-2000 chunks"):
+        year_ephe = ephe_encoded[ephe_encoded.index.year == year]
+        if len(year_ephe) == 0:
+            continue
+        year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
+        year_df = downsample_negatives(year_df, ratio=10, random_state=42)
+        pre2000_chunks.append(year_df)
 
-        pre2000_full = pd.concat(pre2000_chunks, ignore_index=True)
-        logger.info(f"Pre-2000 full size before downsample: {len(pre2000_full):,} rows")
-        del pre2000_chunks
-
-        train_df = downsample_negatives(pre2000_full, ratio=10, random_state=42)
-        del pre2000_full
-
-    except MemoryError:
-        use_per_year_downsample = True
-        logger.warning("MemoryError during full-collection strategy — switching to per-year downsampling")
-        pre2000_chunks = []
-        for year in tqdm(range(1900, 2000), desc="Building pre-2000 chunks (per-year downsample)"):
-            year_ephe = ephe_encoded[ephe_encoded.index.year == year]
-            if len(year_ephe) == 0:
-                continue
-            year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
-            year_df = downsample_negatives(year_df, ratio=10, random_state=42)
-            pre2000_chunks.append(year_df)
-        train_df = pd.concat(pre2000_chunks, ignore_index=True)
-        del pre2000_chunks
+    train_df = pd.concat(pre2000_chunks, ignore_index=True)
+    del pre2000_chunks
 
     logger.info(
-        f"Training set after 10:1 downsample ({'per-year' if use_per_year_downsample else 'full-pool'}): "
-        f"{len(train_df):,} rows"
+        f"Training set after per-year 10:1 downsample: {len(train_df):,} rows"
     )
 
     # -----------------------------------------------------------------------
