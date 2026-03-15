@@ -117,11 +117,18 @@ def extract_country(place: str | None) -> str:
         - If place is None or empty string → return "Unknown"
         - If place contains a comma → return the last token after the final comma (stripped)
         - Otherwise → return place as-is (e.g. "Bismarck Sea")
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("extract_country not yet implemented (Wave 1)")
+    import math
+    if place is None:
+        return "Unknown"
+    if isinstance(place, float) and math.isnan(place):
+        return "Unknown"
+    place_str = str(place).strip()
+    if not place_str:
+        return "Unknown"
+    if "," in place_str:
+        return place_str.split(",")[-1].strip()
+    return place_str
 
 
 # ---------------------------------------------------------------------------
@@ -139,11 +146,54 @@ def build_eq_index(usgs_df: pd.DataFrame) -> pd.Series:
 
     Returns:
         pd.Series with MultiIndex (date, grid_lat, grid_lon) and integer value 1.
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("build_eq_index not yet implemented (Wave 1)")
+    from datetime import date as date_type
+
+    times = pd.to_datetime(usgs_df["time"])
+    dates = times.dt.date  # convert to datetime.date objects
+
+    grid_lats = (np.floor(usgs_df["latitude"].to_numpy() / 5) * 5).astype(int).tolist()
+    grid_lons = (np.floor(usgs_df["longitude"].to_numpy() / 5) * 5).astype(int).tolist()
+
+    idx = pd.MultiIndex.from_arrays(
+        [
+            pd.Index(list(dates), dtype=object),
+            grid_lats,
+            grid_lons,
+        ],
+        names=["date", "grid_lat", "grid_lon"],
+    )
+    series = pd.Series(1, index=idx, dtype=int)
+    # Collapse duplicate (date, cell) entries — keep one entry per unique key
+    series = series[~series.index.duplicated(keep="first")]
+    return series
+
+
+def build_country_map(usgs_df: pd.DataFrame) -> dict:
+    """Build a mapping from (grid_lat, grid_lon) to the most common country name.
+
+    Args:
+        usgs_df: DataFrame with 'latitude', 'longitude', 'place' columns.
+
+    Returns:
+        Dict mapping (grid_lat, grid_lon) tuple → country name string.
+        Cells with no place data map to "Unknown".
+    """
+    grid_lats = (np.floor(usgs_df["latitude"].to_numpy() / 5) * 5).astype(int).tolist()
+    grid_lons = (np.floor(usgs_df["longitude"].to_numpy() / 5) * 5).astype(int).tolist()
+
+    tmp = pd.DataFrame({
+        "grid_lat": grid_lats,
+        "grid_lon": grid_lons,
+        "country": usgs_df["place"].apply(extract_country).values,
+    })
+
+    # For each cell, use the most common country name
+    country_map: dict = {}
+    for (glat, glon), group in tmp.groupby(["grid_lat", "grid_lon"]):
+        country_map[(int(glat), int(glon))] = group["country"].mode().iloc[0]
+
+    return country_map
 
 
 # ---------------------------------------------------------------------------
@@ -289,10 +339,17 @@ def fit_nakshatra_encoder(pre2000_df: pd.DataFrame):
     """
     from sklearn.preprocessing import OneHotEncoder
 
+    # sklearn < 1.0 uses `sparse=False`; sklearn >= 1.0 uses `sparse_output=False`
+    import sklearn
+    _sparse_kwarg = (
+        {"sparse_output": False}
+        if tuple(int(x) for x in sklearn.__version__.split(".")[:2]) >= (1, 0)
+        else {"sparse": False}
+    )
     encoder = OneHotEncoder(
         handle_unknown="ignore",
-        sparse_output=False,
         dtype=np.uint8,
+        **_sparse_kwarg,
     )
     encoder.fit(pre2000_df[NAKSHATRA_COLS])
     return encoder
@@ -314,7 +371,11 @@ def apply_nakshatra_encoding(df: pd.DataFrame, encoder) -> pd.DataFrame:
         nakshatra string columns removed.
     """
     ohe_array = encoder.transform(df[NAKSHATRA_COLS])
-    ohe_col_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+    # sklearn < 1.0 uses get_feature_names(); sklearn >= 1.0 uses get_feature_names_out()
+    if hasattr(encoder, "get_feature_names_out"):
+        ohe_col_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+    else:
+        ohe_col_names = encoder.get_feature_names(NAKSHATRA_COLS)
     ohe_df = pd.DataFrame(ohe_array, columns=ohe_col_names, index=df.index)
 
     result = df.drop(columns=NAKSHATRA_COLS)
@@ -500,3 +561,254 @@ def build_matrix_chunk(
     df["EQIndicator"] = eq_index.reindex(idx).fillna(0).astype(int).values
 
     return df.sort_values(["grid_lat", "grid_lon"]).reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Vectorized year-chunk builder (performance-critical path for main())
+# ---------------------------------------------------------------------------
+
+
+def build_matrix_year(
+    year_ephe: pd.DataFrame,
+    active_cells: list[tuple[int, int]],
+    eq_index: pd.Series,
+    country_map: dict,
+) -> pd.DataFrame:
+    """Build the feature matrix for all dates in a single year using vectorized ops.
+
+    This is functionally equivalent to calling build_matrix_chunk for each row in
+    year_ephe and concatenating, but avoids the Python row-by-row loop overhead
+    by using numpy repeat/tile broadcasting.
+
+    Args:
+        year_ephe: Encoded ephemeris DataFrame for a single year (date-indexed).
+        active_cells: Sorted list of (grid_lat, grid_lon) tuples.
+        eq_index: MultiIndex Series from build_eq_index.
+        country_map: Dict mapping (grid_lat, grid_lon) → country string.
+
+    Returns:
+        DataFrame with (len(year_ephe) * len(active_cells)) rows.
+    """
+    from datetime import date as date_type
+
+    n_dates = len(year_ephe)
+    n_cells = len(active_cells)
+
+    # Convert date index to datetime.date objects
+    dates_raw = year_ephe.index
+    dates = [
+        d if isinstance(d, date_type) else pd.Timestamp(d).date()
+        for d in dates_raw
+    ]
+
+    # Precompute cell arrays
+    cell_arr = np.array(active_cells, dtype=np.int32)
+    grid_lats_tile = np.tile(cell_arr[:, 0], n_dates)
+    grid_lons_tile = np.tile(cell_arr[:, 1], n_dates)
+    countries_tile = [country_map.get((r, c), "Unknown") for r, c in active_cells] * n_dates
+    dates_repeat = np.repeat(dates, n_cells)
+
+    # Broadcast feature columns: repeat each date row n_cells times
+    feat_cols = [c for c in year_ephe.columns if c != "date"]
+    feature_vals = np.repeat(year_ephe[feat_cols].values, n_cells, axis=0)
+
+    df = pd.DataFrame(feature_vals, columns=feat_cols)
+    df["grid_lat"] = grid_lats_tile
+    df["grid_lon"] = grid_lons_tile
+    df["country"] = countries_tile
+    df["date"] = dates_repeat
+
+    # Build lookup MultiIndex for EQIndicator assignment
+    idx = pd.MultiIndex.from_arrays(
+        [
+            pd.Index(list(dates_repeat), dtype=object),
+            grid_lats_tile,
+            grid_lons_tile,
+        ]
+    )
+    df["EQIndicator"] = eq_index.reindex(idx).fillna(0).astype(int).values
+
+    return df.reset_index(drop=True)
+
+
+# ---------------------------------------------------------------------------
+# Main orchestration pipeline
+# ---------------------------------------------------------------------------
+
+
+def main() -> None:
+    """Orchestrate the full feature engineering pipeline.
+
+    Reads raw ephemeris and USGS earthquake data, encodes all features,
+    and writes four output artifacts to data/processed/:
+        - feature_matrix_train.parquet  (~263K rows, pre-2000, 10:1 downsampled)
+        - feature_matrix_test.parquet   (~8.5M rows, post-2000, NOT downsampled)
+        - feature_columns.json          (ordered list of feature column names)
+        - nakshatra_encoder.pkl         (fitted OneHotEncoder, fit on pre-2000 only)
+    """
+    import json
+    from pathlib import Path
+
+    import pyarrow as pa
+    import pyarrow.parquet as pq
+    from tqdm import tqdm
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s — %(message)s",
+    )
+
+    # -----------------------------------------------------------------------
+    # Step 1: Load raw data
+    # -----------------------------------------------------------------------
+    logger.info("Loading raw data...")
+    ephe_df = pd.read_csv("data/raw/ephemeris.csv", parse_dates=["date"])
+    ephe_df = ephe_df.set_index("date")
+    logger.info(f"Ephemeris loaded: {len(ephe_df):,} rows")
+
+    usgs_df = pd.read_csv("data/raw/usgs_earthquakes.csv")
+    logger.info(f"USGS loaded: {len(usgs_df):,} rows")
+
+    # -----------------------------------------------------------------------
+    # Step 2: Fit nakshatra encoder on pre-2000 data BEFORE encoding
+    # -----------------------------------------------------------------------
+    logger.info("Fitting nakshatra encoder on pre-2000 data...")
+    pre2000_ephe_raw = ephe_df.loc[ephe_df.index < pd.Timestamp("2000-01-01")]
+    encoder = fit_nakshatra_encoder(pre2000_ephe_raw)
+    Path("data/processed").mkdir(parents=True, exist_ok=True)
+    save_encoder(encoder, "data/processed/nakshatra_encoder.pkl")
+    logger.info(f"Pre-2000 rows for encoder fit: {len(pre2000_ephe_raw):,}")
+
+    # -----------------------------------------------------------------------
+    # Step 3: Encode full ephemeris (cyclic transforms, drop raw cols)
+    # -----------------------------------------------------------------------
+    logger.info("Encoding ephemeris (cyclic transforms)...")
+    ephe_encoded = encode_ephemeris(ephe_df)
+    logger.info(f"After encode_ephemeris: {ephe_encoded.shape[1]} columns")
+
+    ephe_encoded = apply_nakshatra_encoding(ephe_encoded, encoder)
+    logger.info(f"After apply_nakshatra_encoding: {ephe_encoded.shape[1]} columns")
+
+    # -----------------------------------------------------------------------
+    # Step 4: Build USGS lookup structures
+    # -----------------------------------------------------------------------
+    logger.info("Building USGS lookup structures...")
+    active_cells = active_cells_list(build_active_cells(usgs_df))
+    logger.info(f"Active cells: {len(active_cells)}")
+    eq_index = build_eq_index(usgs_df)
+    country_map = build_country_map(usgs_df)
+    logger.info(f"EQ index size: {len(eq_index):,} entries")
+
+    # -----------------------------------------------------------------------
+    # Step 5: Build pre-2000 training matrix using vectorized year builder
+    # -----------------------------------------------------------------------
+    logger.info("Building pre-2000 training matrix (vectorized, chunked by year)...")
+
+    # Try full-year collection first; fall back to per-year downsampling on MemoryError
+    use_per_year_downsample = False
+    pre2000_chunks = []
+
+    try:
+        for year in tqdm(range(1900, 2000), desc="Building pre-2000 chunks"):
+            year_ephe = ephe_encoded[ephe_encoded.index.year == year]
+            if len(year_ephe) == 0:
+                continue
+            year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
+            pre2000_chunks.append(year_df)
+
+        pre2000_full = pd.concat(pre2000_chunks, ignore_index=True)
+        logger.info(f"Pre-2000 full size before downsample: {len(pre2000_full):,} rows")
+        del pre2000_chunks
+
+        train_df = downsample_negatives(pre2000_full, ratio=10, random_state=42)
+        del pre2000_full
+
+    except MemoryError:
+        use_per_year_downsample = True
+        logger.warning("MemoryError during full-collection strategy — switching to per-year downsampling")
+        pre2000_chunks = []
+        for year in tqdm(range(1900, 2000), desc="Building pre-2000 chunks (per-year downsample)"):
+            year_ephe = ephe_encoded[ephe_encoded.index.year == year]
+            if len(year_ephe) == 0:
+                continue
+            year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
+            year_df = downsample_negatives(year_df, ratio=10, random_state=42)
+            pre2000_chunks.append(year_df)
+        train_df = pd.concat(pre2000_chunks, ignore_index=True)
+        del pre2000_chunks
+
+    logger.info(
+        f"Training set after 10:1 downsample ({'per-year' if use_per_year_downsample else 'full-pool'}): "
+        f"{len(train_df):,} rows"
+    )
+
+    # -----------------------------------------------------------------------
+    # Step 6: Assert temporal split
+    # -----------------------------------------------------------------------
+    assert train_df["date"].max() < pd.Timestamp("2000-01-01").date(), (
+        f"Temporal leakage: training set max date = {train_df['date'].max()}"
+    )
+    logger.info("Temporal split assertion passed (max train date < 2000-01-01)")
+
+    # -----------------------------------------------------------------------
+    # Step 7: Write training parquet
+    # -----------------------------------------------------------------------
+    train_path = "data/processed/feature_matrix_train.parquet"
+    train_df.to_parquet(train_path, engine="pyarrow", compression="snappy", index=False)
+    logger.info(f"Wrote {train_path}")
+
+    # -----------------------------------------------------------------------
+    # Step 8: Build post-2000 test matrix in annual chunks, write incrementally
+    # -----------------------------------------------------------------------
+    logger.info("Building post-2000 test matrix (chunked by year, streaming write)...")
+    test_path = Path("data/processed/feature_matrix_test.parquet")
+    writer = None
+    available_years = set(ephe_encoded.index.year.tolist())
+
+    for year in tqdm(range(2000, 2027), desc="Building test set"):
+        if year not in available_years:
+            continue
+        year_ephe = ephe_encoded[ephe_encoded.index.year == year]
+        year_df = build_matrix_year(year_ephe, active_cells, eq_index, country_map)
+
+        table = pa.Table.from_pandas(year_df, preserve_index=False)
+        if writer is None:
+            writer = pq.ParquetWriter(str(test_path), table.schema, compression="snappy")
+        writer.write_table(table)
+        del year_df
+
+    if writer:
+        writer.close()
+    logger.info(f"Wrote {test_path}")
+
+    # -----------------------------------------------------------------------
+    # Step 9: Save feature_columns.json manifest
+    # -----------------------------------------------------------------------
+    meta_cols = {"EQIndicator", "grid_lat", "grid_lon", "country", "date"}
+    feature_cols = [c for c in train_df.columns if c not in meta_cols]
+    with open("data/processed/feature_columns.json", "w") as f:
+        json.dump(feature_cols, f, indent=2)
+    logger.info(f"Saved {len(feature_cols)} feature columns to feature_columns.json")
+
+    # -----------------------------------------------------------------------
+    # Step 10: Final validation assertions
+    # -----------------------------------------------------------------------
+    # Detect raw ephemeris columns: must end with the raw suffix but NOT be the grid cell columns
+    # grid_lon is a meta column, not a raw ephemeris feature — exclude it from the check
+    bad_cols = [
+        c for c in train_df.columns
+        if (c.endswith("_lon") and c not in ("grid_lon",))
+        or c.endswith("_sign_num")
+        or (c.endswith("_sign") and c not in ("grid_lon",))
+        or c.endswith("_nakshatra_num")
+    ]
+    assert len(bad_cols) == 0, f"Raw columns found in output: {bad_cols}"
+    assert "EQIndicator" in train_df.columns
+    assert "grid_lat" in train_df.columns
+    assert "grid_lon" in train_df.columns
+    assert "country" in train_df.columns
+    logger.info("All output assertions passed")
+
+
+if __name__ == "__main__":
+    main()

@@ -402,7 +402,11 @@ class TestEncoderFitScope:
 
         pre2000_df = _make_full_nakshatra_df()
         encoder = fit_nakshatra_encoder(pre2000_df)
-        feature_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+        # sklearn < 1.0 uses get_feature_names(); sklearn >= 1.0 uses get_feature_names_out()
+        if hasattr(encoder, "get_feature_names_out"):
+            feature_names = encoder.get_feature_names_out(NAKSHATRA_COLS)
+        else:
+            feature_names = encoder.get_feature_names(NAKSHATRA_COLS)
         assert len(feature_names) == 351, f"Expected 351 columns, got {len(feature_names)}"
 
     def test_unknown_nakshatra_zero_vector(self):
