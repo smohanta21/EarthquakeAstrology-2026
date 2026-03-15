@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 01-data-pipeline/01-01-PLAN.md — USGS download script + 39,514 earthquake records
-last_updated: "2026-03-15T16:37:12.254Z"
+stopped_at: Completed 01-data-pipeline/01-02-PLAN.md — Swiss Ephemeris computation script with 13-planet positions, 390 aspect columns, and Vedic nakshatras
+last_updated: "2026-03-15T16:45:58.762Z"
 last_activity: 2026-03-14 — Roadmap created
 progress:
   total_phases: 4
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 33
 ---
 
@@ -51,6 +51,7 @@ Progress: [███░░░░░░░] 33%
 
 *Updated after each plan completion*
 | Phase 01-data-pipeline P01 | 11 | 2 tasks | 9 files |
+| Phase 01-data-pipeline P02 | 5 | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -65,6 +66,9 @@ Recent decisions affecting current work:
 - [Phase 01-data-pipeline]: 5-year API chunks chosen for USGS pagination — max 2,665 events per window, far below 20k limit with room for catalog growth
 - [Phase 01-data-pipeline]: TRUNCATION_LIMIT guard is fatal RuntimeError — silent truncation corrupts ML target variable and must never pass silently
 - [Phase 01-data-pipeline]: Actual USGS M5.5+ catalog (1900-2026) is 39,514 records — plan estimate of 50k+ was an overestimate; data completeness verified via Sumatra event check and no-truncation guard
+- [Phase 01-data-pipeline]: pysweph 2.10.3.6 calc_ut returns 3-tuple (xx, iflag, serr) not 2-tuple — all callers must unpack 3 values
+- [Phase 01-data-pipeline]: Swiss Ephemeris .se1 files moved to GitHub (aloistr/swisseph) — AstroDienst FTP URL 404s; download script updated
+- [Phase 01-data-pipeline]: Chiron (swe.CHIRON) requires seas_18.se1 — no Moshier fallback for asteroid bodies; file must be present before running ephemeris.py
 
 ### Pending Todos
 
@@ -78,6 +82,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-15T16:37:12.249Z
-Stopped at: Completed 01-data-pipeline/01-01-PLAN.md — USGS download script + 39,514 earthquake records
+Last session: 2026-03-15T16:45:58.758Z
+Stopped at: Completed 01-data-pipeline/01-02-PLAN.md — Swiss Ephemeris computation script with 13-planet positions, 390 aspect columns, and Vedic nakshatras
 Resume file: None
