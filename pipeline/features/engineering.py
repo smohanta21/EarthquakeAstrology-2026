@@ -18,7 +18,12 @@ All functions raise NotImplementedError until Wave 1 / Wave 2 tasks implement th
 
 from __future__ import annotations
 
+import logging
+
+import numpy as np
 import pandas as pd
+
+logger = logging.getLogger("pipeline.features.engineering")
 
 # ---------------------------------------------------------------------------
 # Constants — replicated from pipeline/data/ephemeris.py to avoid importing
@@ -65,11 +70,10 @@ def compute_grid_coords(lat: float, lon: float) -> tuple[int, int]:
 
     Returns:
         (grid_lat, grid_lon) where grid_lat = floor(lat/5)*5, grid_lon = floor(lon/5)*5.
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("compute_grid_coords not yet implemented (Wave 1)")
+    grid_lat = int(np.floor(lat / 5) * 5)
+    grid_lon = int(np.floor(lon / 5) * 5)
+    return (grid_lat, grid_lon)
 
 
 def build_active_cells(usgs_df: pd.DataFrame) -> set[tuple[int, int]]:
@@ -80,11 +84,12 @@ def build_active_cells(usgs_df: pd.DataFrame) -> set[tuple[int, int]]:
 
     Returns:
         Set of (grid_lat, grid_lon) tuples.
-
-    Raises:
-        NotImplementedError: Until Wave 1 implements this function.
     """
-    raise NotImplementedError("build_active_cells not yet implemented (Wave 1)")
+    grid_lats = (np.floor(usgs_df["latitude"].to_numpy() / 5) * 5).astype(int)
+    grid_lons = (np.floor(usgs_df["longitude"].to_numpy() / 5) * 5).astype(int)
+    cells = set(zip(grid_lats.tolist(), grid_lons.tolist()))
+    logger.info(f"Active cells (all-time): {len(cells)}")
+    return cells
 
 
 # ---------------------------------------------------------------------------
