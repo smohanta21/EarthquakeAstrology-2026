@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-16T21:18:12.135Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-03-16T23:08:04.826Z"
 last_activity: 2026-03-14 — Roadmap created
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 10
+  completed_plans: 9
   percent: 100
 ---
 
@@ -75,6 +75,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 02-feature-engineering P03 | 25 | 2 tasks | 2 files |
 | Phase 02-feature-engineering P04 | 5 | 2 tasks | 2 files |
 | Phase 02-feature-engineering P05 | 90 | 2 tasks | 6 files |
+| Phase 03-model-training-and-prediction-export P01 | 13 | 3 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -107,6 +108,9 @@ Recent decisions affecting current work:
 - [Phase 02-feature-engineering]: Per-year downsampling always used for pre-2000 matrix build — avoids 32.9M-row intermediate requiring 210GB RAM
 - [Phase 02-feature-engineering]: build_matrix_year() vectorized broadcaster added for O(days*cells) construction without Python row loop overhead
 - [Phase 02-feature-engineering]: test parquet corrupted in committed artifact — ParquetWriter.close() not finalized; needs re-run with raw data on original machine
+- [Phase 03-model-training-and-prediction-export]: chunked row-group inference for holdout prediction: 5.6M rows exceed 16GB RAM; row-group batches accumulate only float32 probabilities
+- [Phase 03-model-training-and-prediction-export]: pyarrow filter pushdown for 2000-2010 training slice: avoids loading full 8.8M-row test parquet (28GB) into memory
+- [Phase 03-model-training-and-prediction-export]: XGBClassifier wins model selection by MCC (0.001363 vs LogReg 0.001158); threshold=0.1499 from PR curve on 2010-2026 holdout
 
 ### Pending Todos
 
@@ -120,6 +124,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T21:18:12.120Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-model-training-and-prediction-export/03-CONTEXT.md
+Last session: 2026-03-16T23:08:04.825Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None

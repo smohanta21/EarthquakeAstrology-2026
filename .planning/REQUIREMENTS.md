@@ -23,10 +23,10 @@
 
 ### ML Model
 
-- [ ] **MODEL-01**: Model trains on 1900–2000 earthquake + astrological feature data
-- [ ] **MODEL-02**: Model is evaluated on 2000–2026 held-out test data using F1 score and Matthews Correlation Coefficient (MCC) as primary metrics (not accuracy)
+- [x] **MODEL-01**: Model trains on 1900–2000 earthquake + astrological feature data
+- [x] **MODEL-02**: Model is evaluated on 2000–2026 held-out test data using F1 score and Matthews Correlation Coefficient (MCC) as primary metrics (not accuracy)
 - [ ] **MODEL-03**: Model predicts both date AND geographic region (country + lat/long grid cell) for high-risk earthquake events
-- [ ] **MODEL-04**: At least two classifier types are compared (e.g., Lasso Logistic Regression, XGBoost) with class imbalance handling (class_weight='balanced' or SMOTE)
+- [x] **MODEL-04**: At least two classifier types are compared (e.g., Lasso Logistic Regression, XGBoost) with class imbalance handling (class_weight='balanced' or SMOTE)
 - [ ] **MODEL-05**: Trained model is saved to disk (joblib/pickle) for reproducible prediction runs
 
 ### Prediction Export
@@ -89,10 +89,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-03 | Phase 2 | Complete |
 | FEAT-04 | Phase 2 | Complete |
 | FEAT-05 | Phase 2 | Complete |
-| MODEL-01 | Phase 3 | Pending |
-| MODEL-02 | Phase 3 | Pending |
+| MODEL-01 | Phase 3 | Complete |
+| MODEL-02 | Phase 3 | Complete |
 | MODEL-03 | Phase 3 | Pending |
-| MODEL-04 | Phase 3 | Pending |
+| MODEL-04 | Phase 3 | Complete |
 | MODEL-05 | Phase 3 | Pending |
 | PRED-01 | Phase 3 | Pending |
 | PRED-02 | Phase 3 | Pending |
