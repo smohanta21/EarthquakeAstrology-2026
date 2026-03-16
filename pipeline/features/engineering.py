@@ -595,22 +595,25 @@ def build_matrix_year(
     n_cells = len(active_cells)
 
     # Convert date index to datetime.date objects
+    # NOTE: pd.Timestamp is a subclass of datetime.date, so isinstance check would
+    # incorrectly pass and leave Timestamps unconverted — always call .date() explicitly.
     dates_raw = year_ephe.index
-    dates = [
-        d if isinstance(d, date_type) else pd.Timestamp(d).date()
-        for d in dates_raw
-    ]
+    dates = [pd.Timestamp(d).date() for d in dates_raw]
 
     # Precompute cell arrays
     cell_arr = np.array(active_cells, dtype=np.int32)
     grid_lats_tile = np.tile(cell_arr[:, 0], n_dates)
     grid_lons_tile = np.tile(cell_arr[:, 1], n_dates)
-    countries_tile = [country_map.get((r, c), "Unknown") for r, c in active_cells] * n_dates
+    countries_tile = np.array(
+        [country_map.get((r, c), "Unknown") for r, c in active_cells] * n_dates,
+        dtype=object,
+    )
     dates_repeat = np.repeat(dates, n_cells)
 
     # Broadcast feature columns: repeat each date row n_cells times
+    # Use float32 to halve memory (~1 GB/year vs ~2 GB with float64)
     feat_cols = [c for c in year_ephe.columns if c != "date"]
-    feature_vals = np.repeat(year_ephe[feat_cols].values, n_cells, axis=0)
+    feature_vals = np.repeat(year_ephe[feat_cols].values.astype(np.float32), n_cells, axis=0)
 
     df = pd.DataFrame(feature_vals, columns=feat_cols)
     df["grid_lat"] = grid_lats_tile
