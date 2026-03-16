@@ -62,7 +62,11 @@ Plans:
   2. An evaluation report file exists showing F1 score and Matthews Correlation Coefficient (MCC) on the 2000–2026 holdout — accuracy is not used as a primary metric
   3. At least two classifier types (e.g., Lasso Logistic Regression and XGBoost) were compared with class imbalance handling, and the chosen model is documented with rationale
   4. `web/public/data/predictions.json` exists, covers all dates March–December 2026, and each entry has the schema: `date`, `country`, `lat`, `lon`, `risk_score`, `top_planetary_aspects`, plus only entries above the risk threshold are included
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Setup model package, train both classifiers on 1900-2010 split, evaluate on 2010-2026 holdout, write eval_report.json
+- [ ] 03-02-PLAN.md — Retrain winner on full 1900-2026 data, serialize model, generate 2026 predictions, export predictions.json
 
 ### Phase 4: Web App and Deployment
 **Goal**: A live Vercel-deployed Next.js app displays 2026 earthquake risk predictions as an interactive calendar, with model transparency and a scientific disclaimer visible to all users
@@ -85,5 +89,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Data Pipeline | 3/3 | Complete   | 2026-03-15 |
 | 2. Feature Engineering | 3/5 | In Progress|  |
-| 3. Model Training and Prediction Export | 0/TBD | Not started | - |
+| 3. Model Training and Prediction Export | 0/2 | Not started | - |
 | 4. Web App and Deployment | 0/TBD | Not started | - |
