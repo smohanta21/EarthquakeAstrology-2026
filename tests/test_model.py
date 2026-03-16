@@ -85,10 +85,13 @@ class TestMetrics:
 
 # --- MODEL-03: Predicts date AND region ---
 class TestPredictionSchema:
-    @pytest.mark.xfail(reason="stub — export_predictions.py not yet implemented")
     def test_geo_columns(self):
         """Each prediction record has country, lat, lon."""
-        assert False
+        records = json.loads(PREDICTIONS_PATH.read_text())
+        for r in records[:10]:
+            assert "country" in r
+            assert "lat" in r
+            assert "lon" in r
 
 
 # --- MODEL-04: Two classifiers compared ---
@@ -103,20 +106,20 @@ class TestBothModels:
 
 # --- MODEL-05: Model serialized ---
 class TestSerialization:
-    @pytest.mark.xfail(reason="stub — retrain.py not yet implemented")
     def test_model_roundtrip(self):
         """eq_classifier.pkl written and loadable."""
-        assert False
+        import joblib
+        assert CLASSIFIER_PATH.exists(), "eq_classifier.pkl not found"
+        model = joblib.load(CLASSIFIER_PATH)
+        assert hasattr(model, "predict_proba"), "Loaded object has no predict_proba"
 
 
 # --- PRED-01: predictions.json in web/public/data/ ---
 class TestPredictionExport:
-    @pytest.mark.xfail(reason="stub — export_predictions.py not yet implemented")
     def test_output_path(self):
         """predictions.json exists at web/public/data/predictions.json."""
         assert PREDICTIONS_PATH.exists()
 
-    @pytest.mark.xfail(reason="stub — export_predictions.py not yet implemented")
     def test_record_schema(self):
         """Each record has date, country, lat, lon, risk_score, top_planetary_aspects."""
         records = json.loads(PREDICTIONS_PATH.read_text())
@@ -124,7 +127,6 @@ class TestPredictionExport:
         for r in records[:5]:
             assert required.issubset(r.keys())
 
-    @pytest.mark.xfail(reason="stub — export_predictions.py not yet implemented")
     def test_threshold_filter(self):
         """No records with risk_score below threshold."""
         report = json.loads(EVAL_REPORT_PATH.read_text())
@@ -158,3 +160,30 @@ class TestArtifactSmoke:
         """feature_columns.json has 813 entries."""
         cols = json.loads(FEATURE_COLS_PATH.read_text())
         assert len(cols) == 813, f"Expected 813, got {len(cols)}"
+
+
+# --- New tests for Plan 02 outputs ---
+
+class TestTopAspects:
+    def test_aspects_are_strings(self):
+        """top_planetary_aspects entries are strings."""
+        records = json.loads(PREDICTIONS_PATH.read_text())
+        for r in records[:10]:
+            for a in r["top_planetary_aspects"]:
+                assert isinstance(a, str)
+
+    def test_aspects_max_three(self):
+        """No entry has more than 3 top_planetary_aspects."""
+        records = json.loads(PREDICTIONS_PATH.read_text())
+        for r in records:
+            assert len(r["top_planetary_aspects"]) <= 3
+
+
+class TestPredictionDates:
+    def test_dates_in_2026(self):
+        """All prediction dates are in March-December 2026."""
+        records = json.loads(PREDICTIONS_PATH.read_text())
+        for r in records[:50]:
+            assert r["date"].startswith("2026-")
+            month = int(r["date"].split("-")[1])
+            assert 3 <= month <= 12
