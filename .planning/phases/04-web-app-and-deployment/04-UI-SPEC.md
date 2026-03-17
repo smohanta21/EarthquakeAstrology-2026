@@ -34,7 +34,7 @@ Declared values (must be multiples of 4):
 | Token | Value | Usage |
 |-------|-------|-------|
 | xs | 4px | Calendar cell date number padding (`p-1`), inline label gaps |
-| sm | 8px | Row gaps within calendar grid (`gap-2`), tight list spacing |
+| sm | 8px | Row gaps within calendar grid (`gap-2`), tight list spacing, disclaimer banner vertical padding (`py-2`) |
 | md | 16px | Default element spacing, panel section padding |
 | lg | 24px | Month block bottom margin, panel top padding |
 | xl | 32px | Page horizontal padding, section breaks |
@@ -45,7 +45,7 @@ Exceptions:
 - Calendar cell touch target: `aspect-square` cells — minimum rendered size is ~44px at mobile breakpoint (375px / 7 cols = ~53px). No explicit override needed; grid math satisfies WCAG 2.5.5 naturally.
 - Detail panel width: 384px (Tailwind `w-96`) — fixed, not on the 8-point token scale. This is a panel-specific structural dimension.
 
-Source: RESEARCH.md code examples use `gap-1`, `p-1`, `mb-8`, `px-4 py-3`, `px-6 py-4`, `p-6` — all multiples of 4. Standard 8-point scale confirmed.
+Source: RESEARCH.md code examples use `gap-1`, `p-1`, `mb-8`, `px-4 py-2`, `px-6 py-4`, `p-6` — all multiples of 4. Standard 8-point scale confirmed.
 
 ---
 
@@ -184,7 +184,7 @@ interface EvalReport {
 - Position: Top of every page, before nav, before `<main>` — rendered in root layout
 - Non-dismissable: No close button, no toggle, no collapse
 - Required copy (verbatim minimum): "This is an experimental astrological model. Earthquakes cannot be reliably predicted. This tool is for research purposes only and should not be used for safety decisions."
-- Styling: `bg-amber-50 border-b border-amber-200 px-4 py-3 text-sm text-amber-900`
+- Styling: `bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-900`
 - Bold lead-in: **Disclaimer:** prefix in `font-semibold`
 
 ---
@@ -194,7 +194,7 @@ interface EvalReport {
 | Element | Copy |
 |---------|------|
 | Primary CTA | "View Risk Details" — implicit; no explicit button label; clicking a high-risk cell is the CTA |
-| Disclaimer (required verbatim minimum) | "This is an experimental astrological model. Earthquakes cannot be reliably predicted. This tool is for research purposes only and should not be used for safety decisions." |
+| Disclaimer (required verbatim minimum) | "This is an experimental astrological model. Earthquakes cannot be reliably predicted. This tool is for research purposes only and should not be used for safety decisions." Styling: `bg-amber-50 border-b border-amber-200 px-4 py-2 text-sm text-amber-900` |
 | Empty month heading | (none — empty months render as all-white cells silently; no explicit empty state message needed) |
 | Empty month body | (not applicable — sparse data is the expected production state; all-white cells are self-explanatory) |
 | No data in panel | Not reachable — panel only opens for high-risk dates that have predictions |
