@@ -56,10 +56,10 @@ Source: RESEARCH.md code examples use `gap-1`, `p-1`, `mb-8`, `px-4 py-3`, `px-6
 | Body | 14px | 400 (regular) | 1.5 | Region list entries in detail panel, aspect strings, methodology prose |
 | Label | 12px | 400 (regular) | 1.4 | Calendar date numbers, day-of-week headers (Sun–Sat), metric labels |
 | Heading | 18px | 600 (semibold) | 1.2 | Detail panel date heading, month name headings, page section titles |
-| Display | 28px | 700 (bold) | 1.1 | Risk score number in detail panel (e.g., "0.73") |
+| Display | 28px | 600 (semibold) | 1.1 | Risk score number in detail panel (e.g., "0.73") |
 
 Notes:
-- Exactly 4 sizes, 2 effective weights (regular 400, semibold/bold 600–700). Bold (700) is used only for the single numeric risk score display — not a general weight.
+- Exactly 4 sizes, 2 weights: regular (400) for Body and Label; semibold (600) for Heading and Display.
 - Font family: Inter (via `next/font/google`). Applied to `<html>` element via className in root layout.
 - Uppercase label variant: `text-xs font-semibold text-gray-500 uppercase tracking-wide` — used for "Top Planetary Aspects" section header in detail panel (12px semibold).
 
@@ -163,7 +163,7 @@ interface EvalReport {
 - **Outside-click overlay:** Full-screen `fixed inset-0 -z-10` div with `onClick={onClose}`; sits behind panel, above calendar
 - **Panel sections (top to bottom):**
   1. Date heading — 18px semibold
-  2. Max risk score — 28px bold + orange progress bar (100% width = risk_score 1.0)
+  2. Max risk score — 28px semibold + orange progress bar (100% width = risk_score 1.0)
   3. Regions list — sorted by risk_score descending, all entries shown; format: "[Country] — lat [N], lon [N]"; 14px regular
   4. Top Planetary Aspects — 12px uppercase semibold section label + bulleted list of aspect strings (underscore replaced with space); 14px regular list items
 
