@@ -78,7 +78,13 @@ Plans:
   3. A methodology page is reachable from the calendar and displays model evaluation metrics (F1, MCC, confusion matrix) from the 2000–2026 test period
   4. A prominent scientific disclaimer stating this is an experimental model and earthquakes cannot be reliably predicted is visible on the main page without requiring any user interaction
   5. The Vercel build completes without errors and all static assets are within Vercel size limits, with predictions.json served from `public/data/` (not bundled into the serverless function)
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Scaffold Next.js 16 app, define types/loaders, create root layout with disclaimer and nav
+- [ ] 04-02-PLAN.md — Build interactive calendar with 10-month grid, detail panel, and week highlight
+- [ ] 04-03-PLAN.md — Create methodology page with model evaluation metrics and confusion matrix
+- [ ] 04-04-PLAN.md — Production build verification and Vercel deployment
 
 ## Progress
 
@@ -90,4 +96,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 | 1. Data Pipeline | 3/3 | Complete   | 2026-03-15 |
 | 2. Feature Engineering | 3/5 | In Progress|  |
 | 3. Model Training and Prediction Export | 2/2 | Complete   | 2026-03-16 |
-| 4. Web App and Deployment | 0/TBD | Not started | - |
+| 4. Web App and Deployment | 0/4 | Not started | - |
