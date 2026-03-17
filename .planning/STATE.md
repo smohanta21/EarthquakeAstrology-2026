@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 4 UI-SPEC approved
-last_updated: "2026-03-17T18:32:09.360Z"
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-03-17T20:37:14.892Z"
 last_activity: 2026-03-14 — Roadmap created
 progress:
   total_phases: 4
   completed_phases: 3
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 14
+  completed_plans: 11
   percent: 100
 ---
 
@@ -77,6 +77,7 @@ Progress: [███░░░░░░░] 33%
 | Phase 02-feature-engineering P05 | 90 | 2 tasks | 6 files |
 | Phase 03-model-training-and-prediction-export P01 | 13 | 3 tasks | 6 files |
 | Phase 03-model-training-and-prediction-export P02 | 4 | 2 tasks | 6 files |
+| Phase 04-web-app-and-deployment P01 | 4 | 2 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -114,6 +115,8 @@ Recent decisions affecting current work:
 - [Phase 03-model-training-and-prediction-export]: XGBClassifier wins model selection by MCC (0.001363 vs LogReg 0.001158); threshold=0.1499 from PR curve on 2010-2026 holdout
 - [Phase 03-model-training-and-prediction-export]: 2026 features loaded from test parquet row group 26 instead of re-running ephemeris pipeline: raw ephemeris.csv not present; parquet already has correctly encoded 813-col features for all 2026 dates
 - [Phase 03-model-training-and-prediction-export]: joblib compress=3 for model serialization: 144 KB output balances size and load speed for eq_classifier.pkl
+- [Phase 04-web-app-and-deployment]: npm cache had root-owned directories (EACCES); workaround npm_config_cache=/tmp/npm-cache for install
+- [Phase 04-web-app-and-deployment]: Tailwind CSS 4 globals.css uses CSS-first @import tailwindcss directive — no tailwind.config.js needed
 
 ### Pending Todos
 
@@ -127,6 +130,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T18:32:09.357Z
-Stopped at: Phase 4 UI-SPEC approved
-Resume file: .planning/phases/04-web-app-and-deployment/04-UI-SPEC.md
+Last session: 2026-03-17T20:37:14.890Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
