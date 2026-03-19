@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-03-17T20:45:08.088Z"
+stopped_at: "Paused at checkpoint: Task 2 of 04-04-PLAN.md (Vercel deployment human-verify)"
+last_updated: "2026-03-19T16:45:54.837Z"
 last_activity: 2026-03-14 — Roadmap created
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 14
-  completed_plans: 13
+  completed_plans: 14
   percent: 100
 ---
 
@@ -123,6 +123,9 @@ Recent decisions affecting current work:
 - [Phase 04-web-app-and-deployment]: Server Component page.tsx loads predictions via loadPredictions()/groupPredictionsByDate() and passes as plain Record to CalendarInteractive client component
 - [Phase 04-web-app-and-deployment]: Methodology page is a pure Server Component — reads eval_report.json via loadEvalReport() at build time, prerendered as static content
 - [Phase 04-web-app-and-deployment]: Confusion matrix numbers formatted with toLocaleString() for readability in methodology page (e.g., '151,149' not '151149')
+- [Phase 04-web-app-and-deployment]: Predictions threshold changed from fixed PR-curve value (0.1499) to 90th percentile of per-date max risk scores — produces 31 high-risk dates (top 10% of 306 days) instead of 1; export capped at top 10 rows per date → 310 rows, 74 KB
+- [Phase 04-web-app-and-deployment]: DetailPanel reordered — planetary aspects promoted to hero content at top (formatted as "Sun trine Jupiter"), risk score bar below, top 3 locations only at bottom
+- [Phase 04-web-app-and-deployment]: predictions.json export strategy changed to top-3-days-per-month by max risk score — produces 30 high-risk dates across all 10 months at 72KB for year-round calendar coverage
 
 ### Pending Todos
 
@@ -136,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-17T20:45:08.086Z
-Stopped at: Completed 04-03-PLAN.md
+Last session: 2026-03-19T16:45:53.405Z
+Stopped at: Paused at checkpoint: Task 2 of 04-04-PLAN.md (Vercel deployment human-verify)
 Resume file: None
