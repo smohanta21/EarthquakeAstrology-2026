@@ -166,12 +166,37 @@ def main():
     pred_rows["risk_score"] = risk_scores
     logger.info("Inference complete")
 
-    # Step 5: Filter by threshold
-    above = pred_rows[pred_rows["risk_score"] >= threshold].copy()
-    logger.info(
-        "Entries above threshold (%.4f): %d out of %d",
-        threshold, len(above), len(pred_rows),
+    # Step 5: Select top N days per calendar month by per-date max risk score.
+    # This ensures year-round coverage rather than letting globally high months
+    # (e.g. March, November) dominate the output.
+    TOP_DAYS_PER_MONTH = 3
+    date_str_series = pred_rows["date"].apply(
+        lambda d: d.isoformat() if hasattr(d, "isoformat") else str(d)
     )
+    date_max_scores = pred_rows.groupby(date_str_series)["risk_score"].max().reset_index()
+    date_max_scores.columns = ["date", "max_risk_score"]
+    date_max_scores["month"] = date_max_scores["date"].str[:7]
+    high_risk_dates = set(
+        date_max_scores
+        .sort_values("max_risk_score", ascending=False)
+        .groupby("month")
+        .head(TOP_DAYS_PER_MONTH)["date"]
+    )
+    above = pred_rows[date_str_series.isin(high_risk_dates)].copy()
+    logger.info(
+        "High-risk dates (top %d per month): %d dates across %d months, %d rows",
+        TOP_DAYS_PER_MONTH, len(high_risk_dates),
+        date_max_scores[date_max_scores["date"].isin(high_risk_dates)]["month"].nunique(),
+        len(above),
+    )
+
+    # Step 6: Keep only top 10 rows per date (UI shows top 3 locations; 10 gives buffer)
+    above = (
+        above.sort_values("risk_score", ascending=False)
+        .groupby(date_str_series[above.index], sort=False)
+        .head(10)
+    )
+    logger.info("After top-10 per date cap: %d rows", len(above))
 
     # Step 7: Assemble JSON records
     records = []
