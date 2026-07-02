@@ -23,25 +23,25 @@
 
 ### ML Model
 
-- [ ] **MODEL-01**: Model trains on 1900–2000 earthquake + astrological feature data
-- [ ] **MODEL-02**: Model is evaluated on 2000–2026 held-out test data using F1 score and Matthews Correlation Coefficient (MCC) as primary metrics (not accuracy)
-- [ ] **MODEL-03**: Model predicts both date AND geographic region (country + lat/long grid cell) for high-risk earthquake events
-- [ ] **MODEL-04**: At least two classifier types are compared (e.g., Lasso Logistic Regression, XGBoost) with class imbalance handling (class_weight='balanced' or SMOTE)
-- [ ] **MODEL-05**: Trained model is saved to disk (joblib/pickle) for reproducible prediction runs
+- [x] **MODEL-01**: Model trains on 1900–2000 earthquake + astrological feature data
+- [x] **MODEL-02**: Model is evaluated on 2000–2026 held-out test data using F1 score and Matthews Correlation Coefficient (MCC) as primary metrics (not accuracy)
+- [x] **MODEL-03**: Model predicts both date AND geographic region (country + lat/long grid cell) for high-risk earthquake events
+- [x] **MODEL-04**: At least two classifier types are compared (e.g., Lasso Logistic Regression, XGBoost) with class imbalance handling (class_weight='balanced' or SMOTE)
+- [x] **MODEL-05**: Trained model is saved to disk (joblib/pickle) for reproducible prediction runs
 
 ### Prediction Export
 
-- [ ] **PRED-01**: System generates predictions for March–December 2026 and exports as `predictions.json` in the Next.js `public/data/` directory
-- [ ] **PRED-02**: Predictions JSON schema includes: date, country, lat, lon, risk_score (0–1), top_planetary_aspects (array of strings)
-- [ ] **PRED-03**: Only predictions above a defined risk threshold are included in the export (avoids 365 × N regions = excessive file size)
+- [x] **PRED-01**: System generates predictions for March–December 2026 and exports as `predictions.json` in the Next.js `public/data/` directory
+- [x] **PRED-02**: Predictions JSON schema includes: date, country, lat, lon, risk_score (0–1), top_planetary_aspects (array of strings)
+- [x] **PRED-03**: Only predictions above a defined risk threshold are included in the export (avoids 365 × N regions = excessive file size)
 
 ### Web UI
 
-- [ ] **WEB-01**: Calendar view displays 2026 months (March–December) with dates color-coded by earthquake risk level
-- [ ] **WEB-02**: Clicking a high-risk date shows a detail panel: risk score, predicted region(s), and top contributing planetary aspects
-- [ ] **WEB-03**: A methodology page explains the astrological ML approach and displays model evaluation metrics (F1, MCC, confusion matrix) from the 2000–2026 test period
-- [ ] **WEB-04**: A prominent scientific disclaimer is displayed stating this is an experimental astrological model and earthquakes cannot be reliably predicted
-- [ ] **WEB-05**: Next.js app reads predictions.json at build time via Server Component (no client-side fetch)
+- [x] **WEB-01**: Calendar view displays 2026 months (March–December) with dates color-coded by earthquake risk level
+- [x] **WEB-02**: Clicking a high-risk date shows a detail panel: risk score, predicted region(s), and top contributing planetary aspects
+- [x] **WEB-03**: A methodology page explains the astrological ML approach and displays model evaluation metrics (F1, MCC, confusion matrix) from the 2000–2026 test period
+- [x] **WEB-04**: A prominent scientific disclaimer is displayed stating this is an experimental astrological model and earthquakes cannot be reliably predicted
+- [x] **WEB-05**: Next.js app reads predictions.json at build time via Server Component (no client-side fetch)
 
 ### Deployment
 
@@ -89,19 +89,19 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-03 | Phase 2 | Complete |
 | FEAT-04 | Phase 2 | Complete |
 | FEAT-05 | Phase 2 | Complete |
-| MODEL-01 | Phase 3 | Pending |
-| MODEL-02 | Phase 3 | Pending |
-| MODEL-03 | Phase 3 | Pending |
-| MODEL-04 | Phase 3 | Pending |
-| MODEL-05 | Phase 3 | Pending |
-| PRED-01 | Phase 3 | Pending |
-| PRED-02 | Phase 3 | Pending |
-| PRED-03 | Phase 3 | Pending |
-| WEB-01 | Phase 4 | Pending |
-| WEB-02 | Phase 4 | Pending |
-| WEB-03 | Phase 4 | Pending |
-| WEB-04 | Phase 4 | Pending |
-| WEB-05 | Phase 4 | Pending |
+| MODEL-01 | Phase 3 | Complete |
+| MODEL-02 | Phase 3 | Complete |
+| MODEL-03 | Phase 3 | Complete |
+| MODEL-04 | Phase 3 | Complete |
+| MODEL-05 | Phase 3 | Complete |
+| PRED-01 | Phase 3 | Complete |
+| PRED-02 | Phase 3 | Complete |
+| PRED-03 | Phase 3 | Complete |
+| WEB-01 | Phase 4 | Complete |
+| WEB-02 | Phase 4 | Complete |
+| WEB-03 | Phase 4 | Complete |
+| WEB-04 | Phase 4 | Complete |
+| WEB-05 | Phase 4 | Complete |
 | DEPLOY-01 | Phase 4 | Pending |
 | DEPLOY-02 | Phase 4 | Pending |
 

@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: planning
-stopped_at: Phase 3 context gathered
-last_updated: "2026-03-16T21:18:12.135Z"
+stopped_at: "Paused at checkpoint: Task 2 of 04-04-PLAN.md (Vercel deployment human-verify)"
+last_updated: "2026-03-19T16:45:54.837Z"
 last_activity: 2026-03-14 — Roadmap created
 progress:
   total_phases: 4
-  completed_phases: 2
-  total_plans: 8
-  completed_plans: 8
+  completed_phases: 4
+  total_plans: 14
+  completed_plans: 14
   percent: 100
 ---
 
@@ -75,6 +75,11 @@ Progress: [███░░░░░░░] 33%
 | Phase 02-feature-engineering P03 | 25 | 2 tasks | 2 files |
 | Phase 02-feature-engineering P04 | 5 | 2 tasks | 2 files |
 | Phase 02-feature-engineering P05 | 90 | 2 tasks | 6 files |
+| Phase 03-model-training-and-prediction-export P01 | 13 | 3 tasks | 6 files |
+| Phase 03-model-training-and-prediction-export P02 | 4 | 2 tasks | 6 files |
+| Phase 04-web-app-and-deployment P01 | 4 | 2 tasks | 8 files |
+| Phase 04-web-app-and-deployment P02 | 6 | 2 tasks | 4 files |
+| Phase 04-web-app-and-deployment P03 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -107,6 +112,20 @@ Recent decisions affecting current work:
 - [Phase 02-feature-engineering]: Per-year downsampling always used for pre-2000 matrix build — avoids 32.9M-row intermediate requiring 210GB RAM
 - [Phase 02-feature-engineering]: build_matrix_year() vectorized broadcaster added for O(days*cells) construction without Python row loop overhead
 - [Phase 02-feature-engineering]: test parquet corrupted in committed artifact — ParquetWriter.close() not finalized; needs re-run with raw data on original machine
+- [Phase 03-model-training-and-prediction-export]: chunked row-group inference for holdout prediction: 5.6M rows exceed 16GB RAM; row-group batches accumulate only float32 probabilities
+- [Phase 03-model-training-and-prediction-export]: pyarrow filter pushdown for 2000-2010 training slice: avoids loading full 8.8M-row test parquet (28GB) into memory
+- [Phase 03-model-training-and-prediction-export]: XGBClassifier wins model selection by MCC (0.001363 vs LogReg 0.001158); threshold=0.1499 from PR curve on 2010-2026 holdout
+- [Phase 03-model-training-and-prediction-export]: 2026 features loaded from test parquet row group 26 instead of re-running ephemeris pipeline: raw ephemeris.csv not present; parquet already has correctly encoded 813-col features for all 2026 dates
+- [Phase 03-model-training-and-prediction-export]: joblib compress=3 for model serialization: 144 KB output balances size and load speed for eq_classifier.pkl
+- [Phase 04-web-app-and-deployment]: npm cache had root-owned directories (EACCES); workaround npm_config_cache=/tmp/npm-cache for install
+- [Phase 04-web-app-and-deployment]: Tailwind CSS 4 globals.css uses CSS-first @import tailwindcss directive — no tailwind.config.js needed
+- [Phase 04-web-app-and-deployment]: MonthGrid is pure presentational (no use client) — all state and callbacks injected from CalendarInteractive
+- [Phase 04-web-app-and-deployment]: Server Component page.tsx loads predictions via loadPredictions()/groupPredictionsByDate() and passes as plain Record to CalendarInteractive client component
+- [Phase 04-web-app-and-deployment]: Methodology page is a pure Server Component — reads eval_report.json via loadEvalReport() at build time, prerendered as static content
+- [Phase 04-web-app-and-deployment]: Confusion matrix numbers formatted with toLocaleString() for readability in methodology page (e.g., '151,149' not '151149')
+- [Phase 04-web-app-and-deployment]: Predictions threshold changed from fixed PR-curve value (0.1499) to 90th percentile of per-date max risk scores — produces 31 high-risk dates (top 10% of 306 days) instead of 1; export capped at top 10 rows per date → 310 rows, 74 KB
+- [Phase 04-web-app-and-deployment]: DetailPanel reordered — planetary aspects promoted to hero content at top (formatted as "Sun trine Jupiter"), risk score bar below, top 3 locations only at bottom
+- [Phase 04-web-app-and-deployment]: predictions.json export strategy changed to top-3-days-per-month by max risk score — produces 30 high-risk dates across all 10 months at 72KB for year-round calendar coverage
 
 ### Pending Todos
 
@@ -120,6 +139,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-16T21:18:12.120Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-model-training-and-prediction-export/03-CONTEXT.md
+Last session: 2026-03-19T16:45:53.405Z
+Stopped at: Paused at checkpoint: Task 2 of 04-04-PLAN.md (Vercel deployment human-verify)
+Resume file: None

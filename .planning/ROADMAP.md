@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Data Pipeline** - Fetch and validate USGS earthquake records and Swiss Ephemeris planetary positions for 1900–2026 (completed 2026-03-15)
 - [ ] **Phase 2: Feature Engineering** - Build the full ~836-column feature matrix with cyclical encoding, aspects, nakshatras, and strict no-leakage temporal split
-- [ ] **Phase 3: Model Training and Prediction Export** - Train classifier on 1900–2000 data, evaluate on 2000–2026 holdout, export predictions.json for March–December 2026
+- [x] **Phase 3: Model Training and Prediction Export** - Train classifier on 1900–2000 data, evaluate on 2000–2026 holdout, export predictions.json for March–December 2026 (completed 2026-03-16)
 - [ ] **Phase 4: Web App and Deployment** - Build Next.js calendar app consuming predictions.json and deploy to Vercel
 
 ## Phase Details
@@ -62,7 +62,11 @@ Plans:
   2. An evaluation report file exists showing F1 score and Matthews Correlation Coefficient (MCC) on the 2000–2026 holdout — accuracy is not used as a primary metric
   3. At least two classifier types (e.g., Lasso Logistic Regression and XGBoost) were compared with class imbalance handling, and the chosen model is documented with rationale
   4. `web/public/data/predictions.json` exists, covers all dates March–December 2026, and each entry has the schema: `date`, `country`, `lat`, `lon`, `risk_score`, `top_planetary_aspects`, plus only entries above the risk threshold are included
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md — Setup model package, train both classifiers on 1900-2010 split, evaluate on 2010-2026 holdout, write eval_report.json
+- [ ] 03-02-PLAN.md — Retrain winner on full 1900-2026 data, serialize model, generate 2026 predictions, export predictions.json
 
 ### Phase 4: Web App and Deployment
 **Goal**: A live Vercel-deployed Next.js app displays 2026 earthquake risk predictions as an interactive calendar, with model transparency and a scientific disclaimer visible to all users
@@ -74,7 +78,13 @@ Plans:
   3. A methodology page is reachable from the calendar and displays model evaluation metrics (F1, MCC, confusion matrix) from the 2000–2026 test period
   4. A prominent scientific disclaimer stating this is an experimental model and earthquakes cannot be reliably predicted is visible on the main page without requiring any user interaction
   5. The Vercel build completes without errors and all static assets are within Vercel size limits, with predictions.json served from `public/data/` (not bundled into the serverless function)
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+- [ ] 04-01-PLAN.md — Scaffold Next.js 16 app, define types/loaders, create root layout with disclaimer and nav
+- [ ] 04-02-PLAN.md — Build interactive calendar with 10-month grid, detail panel, and week highlight
+- [ ] 04-03-PLAN.md — Create methodology page with model evaluation metrics and confusion matrix
+- [ ] 04-04-PLAN.md — Production build verification and Vercel deployment
 
 ## Progress
 
@@ -85,5 +95,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4
 |-------|----------------|--------|-----------|
 | 1. Data Pipeline | 3/3 | Complete   | 2026-03-15 |
 | 2. Feature Engineering | 3/5 | In Progress|  |
-| 3. Model Training and Prediction Export | 0/TBD | Not started | - |
-| 4. Web App and Deployment | 0/TBD | Not started | - |
+| 3. Model Training and Prediction Export | 2/2 | Complete   | 2026-03-16 |
+| 4. Web App and Deployment | 3/4 | In Progress|  |
