@@ -12,6 +12,8 @@ A machine learning system that combines astrological planetary position data wit
 4. **Model** — a binary classifier (XGBoost, compared against Logistic Regression) predicts earthquake risk per date/region.
 5. **Web app** — pre-computed 2026 predictions are rendered as a static calendar, deployed on Vercel.
 
+**For a detailed walkthrough of the data transformation pipeline** (raw data → final features), see [PIPELINE_TRANSFORMATION.md](PIPELINE_TRANSFORMATION.md). It covers all 11 steps with examples, performance characteristics, and architectural decisions.
+
 ## Project Structure
 
 ```
